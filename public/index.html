@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>QLVB Mobile</title>
+  <meta name="theme-color" content="#0f4c5c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="QLVB">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>QLVB Mobile</h1>
+    <span class="status" id="status"></span>
+  </header>
+
+  <main>
+    <!-- TRA CỨU -->
+    <section id="view-search" class="view">
+      <form id="search-form" class="search-box" autocomplete="off">
+        <input id="q" type="search" enterkeyhint="search" placeholder="Số ký hiệu hoặc trích yếu…">
+        <button type="submit" class="btn primary">Tìm</button>
+      </form>
+      <div class="filters">
+        <div class="seg" role="radiogroup" aria-label="Loại văn bản">
+          <button type="button" data-kind="den" class="on" aria-pressed="true">Văn bản đến</button>
+          <button type="button" data-kind="di" aria-pressed="false">Văn bản đi</button>
+        </div>
+        <div class="chips" id="source-chips"></div>
+        <label class="sort-row">Sắp xếp theo ngày
+          <select id="sort">
+            <option value="desc">Mới nhất trước</option>
+            <option value="asc">Cũ nhất trước</option>
+          </select>
+        </label>
+        <details class="dates">
+          <summary>Lọc theo ngày ban hành <small>(chỉ csdlvb)</small></summary>
+          <div class="date-row">
+            <label>Từ <input type="date" id="from"></label>
+            <label>Đến <input type="date" id="to"></label>
+          </div>
+        </details>
+      </div>
+      <div id="results" class="results"></div>
+      <div class="more-wrap"><button id="more" class="btn" hidden>Tải thêm</button></div>
+    </section>
+
+    <!-- ĐÃ CHỌN -->
+    <section id="view-basket" class="view" hidden>
+      <h2>Văn bản đã chọn để tải</h2>
+      <p class="hint">Mỗi văn bản sẽ tải toàn bộ file đính kèm. Trong trang chi tiết bạn có thể chọn từng file.</p>
+      <div id="basket-list" class="results"></div>
+      <div class="actions" id="basket-actions"></div>
+    </section>
+
+    <!-- TÀI KHOẢN -->
+    <section id="view-account" class="view" hidden>
+      <h2>Tài khoản</h2>
+      <p class="hint">Hai hệ thống dùng chung SSO nhưng mỗi tài khoản được đăng nhập trong một phiên riêng biệt,
+        không ảnh hưởng lẫn nhau. Mật khẩu không được lưu.</p>
+      <div id="accounts"></div>
+    </section>
+  </main>
+
+  <!-- CHI TIẾT -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-head">
+      <button class="btn ghost" id="sheet-close" aria-label="Đóng">‹ Quay lại</button>
+      <span id="sheet-badge" class="badge"></span>
+    </div>
+    <div id="sheet-body" class="sheet-body"></div>
+  </div>
+
+  <!-- KẾT QUẢ TẢI -->
+  <div id="ready" class="ready" hidden>
+    <div class="ready-card">
+      <p id="ready-text"></p>
+      <div class="actions">
+        <button class="btn primary" id="ready-share" hidden>Lưu / Chia sẻ…</button>
+        <button class="btn primary" id="ready-save">Tải xuống</button>
+        <button class="btn ghost" id="ready-close">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <nav class="tabbar">
+    <button data-view="search" class="on">🔎<span>Tra cứu</span></button>
+    <button data-view="basket">📥<span>Đã chọn <b id="basket-count">0</b></span></button>
+    <button data-view="account">👤<span>Tài khoản</span></button>
+  </nav>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

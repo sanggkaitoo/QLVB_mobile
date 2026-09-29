@@ -1,0 +1,26 @@
+# QLVB Mobile – triển khai bằng Docker.
+#   docker compose up -d --build                    # chỉ app, mở cổng 8787 (dùng khi có reverse proxy/HTTPS riêng)
+#   docker compose --profile ngrok up -d --build    # app + public qua ngrok (cần .env, xem .env.example)
+services:
+  app:
+    build: .
+    image: qlvb-mobile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8787}:8787"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/manifest.webmanifest"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    profiles: ["ngrok"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    command: ["http", "app:8787", "--url=${NGROK_URL:-}", "--log=stdout"]

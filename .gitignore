@@ -1,0 +1,26 @@
+# --- Bí mật & cấu hình riêng từng máy (KHÔNG đưa lên git) ---
+.env
+.env.*
+!.env.example
+qlvb.conf
+
+# --- Dữ liệu lúc chạy: log, PID, URL ngrok ---
+run/
+*.log
+*.pid
+
+# --- Node (phòng khi sau này thêm thư viện) ---
+node_modules/
+npm-debug.log*
+
+# --- File tải về / dữ liệu văn bản lỡ để trong thư mục ---
+*.zip
+*.jsonl
+
+# --- Hệ điều hành & editor ---
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+.vscode/
+.idea/
+*.swp
