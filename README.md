@@ -20,6 +20,9 @@ Trong **Nhiệm vụ**, chọn:
 
 Hai danh mục đọc theo quyền tài khoản egov1, hỗ trợ tìm kiếm và phân trang 5/10/20/50/100. Không thực hiện giao việc, trình duyệt hay đánh dấu đã xem. Chi tiết API: [docs/EGOV_WORK_API.md](docs/EGOV_WORK_API.md).
 
+## Giao diện mobile/tablet
+
+Navbar nổi tự ẩn khi cuộn xuống, hiện khi cuộn lên hoặc ở đầu/cuối trang; giữ truy cập bằng bàn phím. Giao diện sáng/tối, vùng an toàn màn hình, giảm chuyển động và nền đục cho chế độ tương phản cao. Thiết kế và kiểm chứng: [docs/UI_UX.md](docs/UI_UX.md).
 ## Bật / tắt
 
 ```bash

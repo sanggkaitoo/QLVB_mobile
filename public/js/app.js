@@ -1,3 +1,4 @@
+import { initNavigation } from './navigation.js';
 import { auth, AuthError } from './store.js';
 import * as egov1 from './egov1.js';
 import * as csdlvb from './csdlvb.js';
@@ -52,6 +53,7 @@ function showView(name) {
   if (name === 'basket') renderBasket();
   if (name === 'account') renderAccounts();
   window.scrollTo(0, 0);
+  navigation.reset();
 }
 
 const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
@@ -73,6 +75,7 @@ function setOverlay(id, open) {
   for (const sel of ['main', '.topbar', '.tabbar']) $(sel).inert = any;
   $('#sheet').inert = !$('#ready').hidden;
   document.body.style.overflow = any ? 'hidden' : '';
+  navigation.suspend(any);
   if (open) el.querySelector('button:not([hidden])')?.focus({ preventScroll: true });
   else {
     const previous = modalFocus.get(id);
@@ -857,6 +860,7 @@ function bind() {
   });
 }
 
+const navigation = initNavigation();
 const progress = initProgress({ openSheet: openProgressSheet, handleError });
 bind();
 renderStatus();
