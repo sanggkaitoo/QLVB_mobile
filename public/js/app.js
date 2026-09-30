@@ -6,8 +6,8 @@ import { makeZip } from './zip.js';
 const ADAPTERS = { egov1, csdlvb };
 const LABELS = { egov1: 'egov1', csdlvb: 'csdlvb' };
 const TITLES = {
-  egov1: 'egov1 – Quản lý, điều hành',
-  csdlvb: 'csdlvb – CSDL văn bản',
+  egov1: 'Quản lý, điều hành',
+  csdlvb: 'Cơ sở dữ liệu văn bản',
 };
 const PAGE_SIZE = 20;
 
@@ -21,6 +21,7 @@ const state = {
   q: '',
   sources: JSON.parse(localStorage.getItem('qlvb.sources') || '{"egov1":true,"csdlvb":true}'),
   sort: localStorage.getItem('qlvb.sort') === 'asc' ? 'asc' : 'desc',
+  from: '', to: '', view: 'search',
   pages: {}, // sys -> { page, total, items }
   basket: new Map(), // key -> item
 };
@@ -36,11 +37,57 @@ function toast(msg) {
 }
 
 function showView(name) {
+  state.view = name;
   for (const v of ['search', 'basket', 'account']) $(`#view-${v}`).hidden = v !== name;
-  document.querySelectorAll('.tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.view === name));
+  document.querySelectorAll('.tabbar button').forEach((b) => {
+    const current = b.dataset.view === name;
+    b.classList.toggle('on', current);
+    if (current) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
   if (name === 'basket') renderBasket();
   if (name === 'account') renderAccounts();
   window.scrollTo(0, 0);
+}
+
+const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+function emptyState(name, title, description, action = '') {
+  return `<div class="empty-state"><span class="empty-icon">${icon(name)}</span><h3>${esc(title)}</h3><p>${esc(description)}</p>${action}</div>`;
+}
+function loadingMarkup(text) {
+  return `<div class="loading"><p class="loading-label" role="status"><span class="spinner" aria-hidden="true"></span>${esc(text)}</p>
+    <div class="skeleton-grid" aria-hidden="true">${Array.from({ length: 2 }, () => '<div class="skeleton"><span></span><span></span><span></span><span></span></div>').join('')}</div></div>`;
+}
+
+// Keep touch scrolling and keyboard focus inside the active dialog.
+const modalFocus = new Map();
+function setOverlay(id, open) {
+  const el = $(`#${id}`);
+  if (open) modalFocus.set(id, document.activeElement);
+  el.hidden = !open;
+  const any = !$('#sheet').hidden || !$('#ready').hidden;
+  for (const sel of ['main', '.topbar', '.tabbar']) $(sel).inert = any;
+  $('#sheet').inert = !$('#ready').hidden;
+  document.body.style.overflow = any ? 'hidden' : '';
+  if (open) el.querySelector('button:not([hidden])')?.focus({ preventScroll: true });
+  else {
+    const previous = modalFocus.get(id);
+    if (previous?.isConnected && !previous.closest('[hidden], [inert]')) previous.focus({ preventScroll: true });
+    modalFocus.delete(id);
+  }
+}
+
+function updateSelection() {
+  const n = state.basket.size;
+  $('#basket-count').textContent = n;
+  $('#basket-count').hidden = !n;
+  $('#selection-link').hidden = !n;
+  $('#selection-link').textContent = `${n} đã chọn`;
+  document.querySelectorAll('.doc').forEach((card) => {
+    const picked = state.basket.has(card.dataset.key);
+    card.classList.toggle('selected', picked);
+    card.querySelector('.pick').checked = picked;
+  });
 }
 
 function handleError(e) {
@@ -55,20 +102,21 @@ function handleError(e) {
 
 function renderStatus() {
   const on = Object.keys(ADAPTERS).filter((s) => auth.valid(s));
-  $('#status').textContent = on.length ? `Đã đăng nhập: ${on.map((s) => LABELS[s]).join(', ')}` : 'Chưa đăng nhập';
+  const status = $('#status');
+  status.innerHTML = `<span class="status-dot" aria-hidden="true"></span><span>${on.length ? `${on.length} hệ thống` : 'Đăng nhập'}${icon('arrow')}</span>`;
+  status.classList.toggle('connected', !!on.length);
+  status.title = on.length ? `Đã đăng nhập: ${on.map((s) => LABELS[s]).join(', ')}` : 'Đăng nhập để tra cứu';
+  status.setAttribute('aria-label', on.length ? `${status.title}. Xem tài khoản` : 'Đăng nhập tài khoản');
   renderChips();
 }
 
 // ---------- tra cứu ----------
 function renderChips() {
-  $('#source-chips').innerHTML = Object.keys(ADAPTERS)
-    .map((s) => {
-      const ok = !!auth.valid(s);
-      return `<label class="chip ${ok ? '' : 'off'}">
-        <input type="checkbox" data-src="${s}" ${state.sources[s] && ok ? 'checked' : ''} ${ok ? '' : 'disabled'}>
-        <span class="badge ${s}">${LABELS[s]}</span>${ok ? '' : ' chưa đăng nhập'}</label>`;
-    })
-    .join('');
+  $('#source-chips').innerHTML = Object.keys(ADAPTERS).map((s) => {
+    const ok = !!auth.valid(s);
+    return `<label class="chip ${ok ? '' : 'off'}"><input type="checkbox" data-src="${s}" aria-label="Tra cứu nguồn ${LABELS[s]}" ${state.sources[s] && ok ? 'checked' : ''} ${ok ? '' : 'disabled'}>
+      <span class="chip-name">${LABELS[s]}</span>${ok ? '' : `${icon('lock')}<span class="chip-note">Chưa kết nối</span>`}</label>`;
+  }).join('');
 }
 
 function activeSources() {
@@ -76,40 +124,48 @@ function activeSources() {
 }
 
 function docCard(it) {
-  const checked = state.basket.has(keyOf(it)) ? 'checked' : '';
-  return `<article class="doc" data-key="${esc(keyOf(it))}">
-    <input type="checkbox" class="pick" aria-label="Chọn để tải" ${checked}>
-    <div class="main">
-      <div class="row1"><span class="badge ${it.sys}">${LABELS[it.sys]}</span>
-        <span class="code">${esc(it.soHieu || '(không số)')}</span><span class="date">${esc(it.ngay)}</span></div>
-      <p class="abs">${esc(it.trichYeu)}</p>
-      <div class="meta">${esc([it.loai, it.coQuan].filter(Boolean).join(' · '))}${
-        it.fileCount ? ` · 📎 ${it.fileCount}` : ''
-      }</div>
-    </div>
-  </article>`;
+  const picked = state.basket.has(keyOf(it));
+  return `<article class="doc ${picked ? 'selected' : ''}" data-key="${esc(keyOf(it))}">
+    <label class="pick-wrap"><input type="checkbox" class="pick" aria-label="Chọn văn bản ${esc(it.soHieu || it.id)} để tải" ${picked ? 'checked' : ''}></label>
+    <div class="main" role="button" tabindex="0" aria-label="Xem chi tiết ${esc(it.soHieu || 'văn bản')}">
+      <div class="row1"><span class="badge ${it.sys}">${LABELS[it.sys]}</span><span class="code">${esc(it.soHieu || '(không số)')}</span></div>
+      <div class="date">${icon('calendar')}${esc(it.ngay || 'Chưa có ngày')}</div>
+      <p class="abs">${esc(it.trichYeu || 'Chưa có trích yếu')}</p>
+      <div class="meta"><span>${esc([it.loai, it.coQuan].filter(Boolean).join(' · '))}${it.fileCount ? ` <span class="file-count">${icon('clip')}${it.fileCount} tệp</span>` : ''}</span><span class="open-hint">Chi tiết${icon('arrow')}</span></div>
+    </div></article>`;
 }
 
 const itemIndex = new Map();
 
 function renderResults() {
   const box = $('#results');
+  box.setAttribute('aria-busy', 'false');
   const srcs = Object.keys(ADAPTERS).filter((s) => state.pages[s]);
   if (!srcs.length) {
-    box.innerHTML = `<p class="empty">${
-      activeSources().length ? 'Nhập từ khoá rồi bấm Tìm (để trống để xem mới nhất).' : 'Hãy đăng nhập ít nhất một hệ thống ở tab Tài khoản.'
-    }</p>`;
+    const active = activeSources().length;
+    const loggedIn = Object.keys(ADAPTERS).some((s) => auth.valid(s));
+    $('#result-summary').textContent = active ? 'Tra cứu từ các nguồn đã kết nối' : 'Chưa có nguồn dữ liệu được chọn';
+    box.innerHTML = active
+      ? emptyState('search', 'Bạn cần tìm văn bản nào?', 'Nhập số ký hiệu hoặc một phần trích yếu. Để trống ô tìm kiếm để xem văn bản mới nhất.', '<button type="button" class="btn primary" data-latest>Xem văn bản mới nhất</button>')
+      : loggedIn
+        ? emptyState('filter', 'Chọn nguồn dữ liệu', 'Chọn egov1 hoặc csdlvb ở phía trên để bắt đầu tra cứu.')
+        : emptyState('lock', 'Kết nối để bắt đầu', 'Đăng nhập ít nhất một hệ thống để tìm và tải văn bản của bạn.', '<button type="button" class="btn primary" data-go-account>Đăng nhập tài khoản</button>');
     $('#more').hidden = true;
     return;
   }
-  box.innerHTML = srcs
-    .map((s) => {
-      const p = state.pages[s];
-      if (p.error) return `<p class="group-head">${LABELS[s]}</p><p class="error">${esc(p.error)}</p>`;
-      const head = `<p class="group-head"><span class="badge ${s}">${LABELS[s]}</span> ${p.items.length}/${p.total.toLocaleString('vi-VN')} kết quả</p>`;
-      return head + (p.items.length ? p.items.map(docCard).join('') : '<p class="empty">Không có kết quả</p>');
-    })
-    .join('');
+  const pages = srcs.map((s) => state.pages[s]);
+  const loaded = pages.reduce((n, p) => n + p.items.length, 0);
+  const total = pages.reduce((n, p) => n + p.total, 0);
+  const errors = pages.filter((p) => p.error).length;
+  $('#result-summary').textContent = errors === pages.length
+    ? `Chưa lấy được kết quả · ${errors} nguồn gặp lỗi`
+    : `Hiển thị ${loaded.toLocaleString('vi-VN')} / ${total.toLocaleString('vi-VN')} văn bản${errors ? ` · ${errors} nguồn gặp lỗi` : ''}`;
+  box.innerHTML = srcs.map((s) => {
+    const p = state.pages[s];
+    const head = `<p class="group-head"><span class="badge ${s}">${LABELS[s]}</span>${p.items.length.toLocaleString('vi-VN')} / ${p.total.toLocaleString('vi-VN')} văn bản</p>`;
+    if (p.error) return `<p class="group-head"><span class="badge ${s}">${LABELS[s]}</span></p><div class="error" role="alert">${esc(p.error)}<div class="actions"><button type="button" class="btn" data-retry="${s}">Thử lại</button></div></div>`;
+    return head + (p.items.length ? p.items.map(docCard).join('') : emptyState('search', 'Chưa tìm thấy văn bản', 'Thử từ khóa ngắn hơn hoặc điều chỉnh bộ lọc.'));
+  }).join('');
   $('#more').hidden = !srcs.some((s) => !state.pages[s].error && state.pages[s].items.length < state.pages[s].total);
 }
 
@@ -127,36 +183,58 @@ function sortByDate(items) {
     .map((w) => w.it);
 }
 
-async function loadPage(sys, page) {
-  const opts = { q: state.q, page, size: PAGE_SIZE, from: $('#from').value, to: $('#to').value, sort: state.sort };
+let searchVersion = 0;
+async function loadPage(sys, page, version = searchVersion) {
+  const opts = { q: state.q, page, size: PAGE_SIZE, from: state.from, to: state.to, sort: state.sort };
+  const kind = state.kind;
   try {
-    const r = await ADAPTERS[sys].search(state.kind, opts);
+    const r = await ADAPTERS[sys].search(kind, opts);
+    if (version !== searchVersion) return;
     const prev = page > 1 ? state.pages[sys].items : [];
     r.items.forEach((it) => itemIndex.set(keyOf(it), it));
     state.pages[sys] = { page, total: r.total, items: sortByDate(prev.concat(r.items)) };
   } catch (e) {
+    if (version !== searchVersion) return;
     state.pages[sys] = { page, total: 0, items: [], error: handleError(e) };
   }
 }
 
 async function runSearch() {
+  const version = ++searchVersion;
   const srcs = activeSources();
   state.pages = {};
+  $('#more').disabled = false;
+  $('#more').textContent = 'Xem thêm văn bản';
   if (!srcs.length) return renderResults();
-  $('#results').innerHTML = '<p class="empty">Đang tìm…</p>';
+  $('#results').innerHTML = loadingMarkup('Đang tìm văn bản…');
+  $('#results').setAttribute('aria-busy', 'true');
+  $('#result-summary').textContent = 'Đang tra cứu các nguồn đã chọn…';
   $('#more').hidden = true;
-  await Promise.all(srcs.map((s) => loadPage(s, 1)));
-  renderResults();
+  await Promise.all(srcs.map((s) => loadPage(s, 1, version)));
+  if (version === searchVersion) renderResults();
+}
+
+// A manual retry should not reload another system whose results are already available.
+async function retrySource(sys, button) {
+  if (!activeSources().includes(sys)) return runSearch();
+  const version = searchVersion;
+  button.disabled = true;
+  button.textContent = 'Đang thử lại…';
+  $('#results').setAttribute('aria-busy', 'true');
+  await loadPage(sys, 1, version);
+  if (version === searchVersion) renderResults();
 }
 
 async function loadMore() {
+  const version = searchVersion;
   const btn = $('#more');
   btn.disabled = true;
   btn.textContent = 'Đang tải…';
   const todo = Object.keys(state.pages).filter((s) => !state.pages[s].error && state.pages[s].items.length < state.pages[s].total);
-  await Promise.all(todo.map((s) => loadPage(s, state.pages[s].page + 1)));
+  await Promise.all(todo.map((s) => loadPage(s, state.pages[s].page + 1, version)));
+  if (version !== searchVersion) return;
   btn.disabled = false;
-  btn.textContent = 'Tải thêm';
+  btn.textContent = 'Xem thêm văn bản';
   renderResults();
 }
 
@@ -164,16 +242,15 @@ async function loadMore() {
 function setPicked(it, on) {
   if (on) state.basket.set(keyOf(it), it);
   else state.basket.delete(keyOf(it));
-  $('#basket-count').textContent = state.basket.size;
+  updateSelection();
 }
 
 function renderBasket() {
   const items = [...state.basket.values()];
-  $('#basket-list').innerHTML = items.length ? items.map(docCard).join('') : '<p class="empty">Chưa chọn văn bản nào. Tick ô vuông ở kết quả tra cứu.</p>';
+  $('#basket-list').innerHTML = items.length ? items.map(docCard).join('') : emptyState('download', 'Danh sách tải đang trống', 'Chạm vào ô chọn bên cạnh văn bản trong kết quả tra cứu để thêm vào đây.', '<button type="button" class="btn primary" data-go-search>Tra cứu văn bản</button>');
+  $('#basket-actions').hidden = !items.length;
   $('#basket-actions').innerHTML = items.length
-    ? `<button class="btn primary" id="dl-zip">Tải ${items.length} văn bản (ZIP)</button>
-       <button class="btn" id="dl-each">Tải từng file</button>
-       <button class="btn danger" id="dl-clear">Bỏ chọn tất cả</button>`
+    ? `<button class="btn primary" id="dl-zip">Tải ${items.length} văn bản (ZIP)</button><button class="btn" id="dl-each">Tải từng tệp</button><button class="btn danger" id="dl-clear">Bỏ chọn tất cả</button>`
     : '';
 }
 
@@ -232,7 +309,7 @@ function offer(files) {
   $('#ready-text').textContent = `Đã sẵn sàng ${files.length} tệp (${(total / 1048576).toFixed(1)} MB).`;
   const asFiles = files.map((f) => new File([f.blob], f.name, { type: f.blob.type || 'application/octet-stream' }));
   $('#ready-share').hidden = !(navigator.canShare && navigator.canShare({ files: asFiles }));
-  $('#ready').hidden = false;
+  setOverlay('ready', true);
 }
 
 function saveViaAnchor(files) {
@@ -249,36 +326,39 @@ function saveViaAnchor(files) {
 }
 
 // ---------- chi tiết ----------
+let detailVersion = 0;
 async function openDetail(it) {
+  const version = ++detailVersion;
   const sheet = $('#sheet');
   $('#sheet-badge').className = `badge ${it.sys}`;
   $('#sheet-badge').textContent = LABELS[it.sys];
-  $('#sheet-body').innerHTML = '<p class="empty">Đang tải…</p>';
-  sheet.hidden = false;
+  $('#sheet-body').innerHTML = loadingMarkup('Đang mở văn bản…');
+  setOverlay('sheet', true);
   sheet.scrollTop = 0;
   history.pushState({ sheet: true }, '');
   try {
     const d = await ADAPTERS[it.sys].detail(it);
+    if (version !== detailVersion) return;
     const inBasket = state.basket.has(keyOf(it));
     $('#sheet-body').innerHTML = `
-      <h2>${esc(it.soHieu || '(không số)')}</h2>
-      <p>${esc(d.fields.find(([k]) => k === 'Trích yếu')?.[1] || it.trichYeu)}</p>
+      <div class="detail-intro"><p class="eyebrow">VĂN BẢN ${it.kind === 'den' ? 'ĐẾN' : 'ĐI'}</p><h2>${esc(it.soHieu || '(không số)')}</h2>
+      <p>${esc(d.fields.find(([k]) => k === 'Trích yếu')?.[1] || it.trichYeu)}</p></div>
       <dl class="fields">${d.fields.filter(([k]) => k !== 'Số ký hiệu' && k !== 'Trích yếu').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-      <h2>File đính kèm (${d.files.length})</h2>
+      <h2>Tệp đính kèm (${d.files.length})</h2>
       ${
         d.files.length
           ? `<ul class="files">${d.files
               .map(
-                (f, i) => `<li><input type="checkbox" data-i="${i}" checked aria-label="Chọn file">
-                  <span class="fname">${esc(f.name)}</span>
+                (f, i) => `<li><label><input type="checkbox" data-i="${i}" checked aria-label="Chọn tệp ${esc(f.name)}">
+                  <span class="fname">${esc(f.name)}</span></label>
                   <button class="btn" data-view-file="${i}">Xem</button></li>`,
               )
               .join('')}</ul>
              <div class="actions">
-               <button class="btn primary" id="dl-files">Tải file đã chọn</button>
+               <button class="btn primary" id="dl-files">Tải tệp đã chọn</button>
                <button class="btn" id="dl-files-zip">Tải dạng ZIP</button>
              </div>`
-          : '<p class="hint">Văn bản không có file đính kèm.</p>'
+          : '<p class="hint">Văn bản không có tệp đính kèm.</p>'
       }
       <div class="actions"><button class="btn" id="toggle-basket">${inBasket ? 'Bỏ khỏi danh sách tải' : 'Thêm vào danh sách tải'}</button></div>`;
 
@@ -332,50 +412,45 @@ async function openDetail(it) {
       const on = !state.basket.has(keyOf(it));
       setPicked(it, on);
       e.currentTarget.textContent = on ? 'Bỏ khỏi danh sách tải' : 'Thêm vào danh sách tải';
+      if (state.view === 'basket') renderBasket();
       document.querySelectorAll(`.doc[data-key="${CSS.escape(keyOf(it))}"] .pick`).forEach((c) => (c.checked = on));
     });
   } catch (e) {
-    $('#sheet-body').innerHTML = `<p class="error">${esc(handleError(e))}</p>`;
+    if (version === detailVersion) $('#sheet-body').innerHTML = `<p class="error" role="alert">${esc(handleError(e))}</p>`;
   }
 }
 
 function closeDetail() {
-  $('#sheet').hidden = true;
+  detailVersion++;
+  setOverlay('sheet', false);
 }
 
 // ---------- tài khoản ----------
-const logins = {}; // sys -> { loginId }
+const logins = {}; // sys -> loginId
+const loginVersions = { egov1: 0, csdlvb: 0 };
 
 function renderAccounts() {
-  $('#accounts').innerHTML = Object.keys(ADAPTERS)
-    .map((s) => {
-      const a = auth.get(s);
-      const valid = auth.valid(s);
-      const until = a?.expiresAt ? new Date(a.expiresAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
-      return `<div class="card" data-sys="${s}">
-        <h3><span class="badge ${s}">${LABELS[s]}</span> ${esc(TITLES[s])}</h3>
-        ${
-          valid
-            ? `<p class="who"><span class="ok">● Đã đăng nhập</span> – ${esc(a.user?.name || a.user?.userName || '')}${
-                a.user?.unit ? `<br>${esc(a.user.unit)}` : ''
-              }<br>Hết hạn: ${esc(until)}</p>
-               <div class="actions"><button class="btn danger" data-logout="${s}">Đăng xuất</button></div>`
-            : `<p class="who">${a ? '<span class="bad">● Phiên đã hết hạn</span>' : 'Chưa đăng nhập'}</p>
-               <div class="actions"><button class="btn primary" data-login="${s}">Đăng nhập</button></div>
-               <form class="form" data-form="${s}" hidden>
-                 <input name="username" placeholder="Tài khoản (SĐT / CCCD / email)" autocomplete="username" value="${esc(
-                   localStorage.getItem(`qlvb.user.${s}`) || '',
-                 )}" required>
-                 <input name="password" type="password" placeholder="Mật khẩu" autocomplete="current-password" required>
-                 <div class="captcha"><img alt="Mã xác thực"><button type="button" class="btn" data-recaptcha="${s}" aria-label="Đổi mã">↻</button>
-                   <input name="captcha" placeholder="Mã xác thực" autocomplete="off" autocapitalize="off" required></div>
-                 <p class="msg"></p>
-                 <button class="btn primary" type="submit">Đăng nhập ${LABELS[s]}</button>
-               </form>`
-        }
-      </div>`;
-    })
-    .join('');
+  $('#accounts').innerHTML = Object.keys(ADAPTERS).map((s) => {
+    const a = auth.get(s);
+    const valid = auth.valid(s);
+    const until = a?.expiresAt ? new Date(a.expiresAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '';
+    return `<div class="card" data-sys="${s}">
+      <div class="account-head"><span class="system-icon ${s}">${icon(s === 'egov1' ? 'document' : 'download')}</span><div><h3>${esc(TITLES[s])}</h3><span class="system-url">${s}.laocai.gov.vn</span></div></div>
+      ${valid
+        ? `<p class="who"><span class="connection-state ok">${icon('check')} Đã kết nối</span><br><strong>${esc(a.user?.name || a.user?.userName || 'Tài khoản đã đăng nhập')}</strong>${a.user?.unit ? `<br>${esc(a.user.unit)}` : ''}<br>Phiên hết hạn: ${esc(until)}</p>
+          <div class="actions"><button class="btn primary" data-search="${s}">Tra cứu văn bản</button><button class="btn danger" data-logout="${s}">Đăng xuất</button></div>`
+        : `<p class="who"><span class="connection-state ${a ? 'bad' : ''}">${a ? 'Phiên đã hết hạn' : 'Chưa kết nối'}</span><br>${a ? 'Đăng nhập lại để tiếp tục tra cứu.' : 'Kết nối tài khoản để tra cứu và tải văn bản.'}</p>
+          <div class="actions"><button class="btn primary" data-login="${s}">Đăng nhập ${LABELS[s]}</button></div>
+          <form class="form" data-form="${s}" hidden>
+            <label for="username-${s}">Tài khoản<input id="username-${s}" name="username" placeholder="SĐT / CCCD / email" autocomplete="username" autocapitalize="off" spellcheck="false" value="${esc(localStorage.getItem(`qlvb.user.${s}`) || '')}" required></label>
+            <label for="password-${s}">Mật khẩu<input id="password-${s}" name="password" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password" required></label>
+            <div class="captcha"><img alt="Mã xác thực"><button type="button" class="btn" data-recaptcha="${s}" aria-label="Đổi mã xác thực">${icon('refresh')}</button><label for="captcha-${s}">Mã xác thực<input id="captcha-${s}" name="captcha" placeholder="Nhập mã trong ảnh" autocomplete="off" autocapitalize="off" spellcheck="false" required></label></div>
+            <p class="msg" role="status"></p>
+            <button class="btn primary" type="submit">Kết nối ${LABELS[s]}</button>
+            <button class="btn ghost" type="button" data-cancel-login="${s}">Hủy đăng nhập</button>
+          </form>`}
+    </div>`;
+  }).join('');
 }
 
 async function post(path, body) {
@@ -389,6 +464,7 @@ async function post(path, body) {
 }
 
 async function beginLogin(sys) {
+  const version = ++loginVersions[sys];
   const card = document.querySelector(`.card[data-sys="${sys}"]`);
   const form = card.querySelector('form');
   card.querySelector(`[data-login]`).parentElement.hidden = true;
@@ -396,12 +472,13 @@ async function beginLogin(sys) {
   form.querySelector('.msg').textContent = 'Đang mở phiên đăng nhập…';
   try {
     const r = await post('/api/auth/start', { sys });
+    if (version !== loginVersions[sys] || !form.isConnected || form.hidden) return;
     logins[sys] = r.loginId;
     form.querySelector('img').src = r.captcha;
     form.querySelector('.msg').textContent = '';
     form.querySelector(form.username.value ? '[name=password]' : '[name=username]').focus();
   } catch (e) {
-    form.querySelector('.msg').textContent = e.message;
+    if (version === loginVersions[sys] && form.isConnected) form.querySelector('.msg').textContent = e.message;
   }
 }
 
@@ -409,6 +486,8 @@ async function submitLogin(sys, form) {
   const msg = form.querySelector('.msg');
   const btn = form.querySelector('[type=submit]');
   btn.disabled = true;
+  const cancel = form.querySelector('[data-cancel-login]');
+  cancel.disabled = true;
   msg.textContent = 'Đang đăng nhập…';
   try {
     const r = await post('/api/auth/finish', {
@@ -435,16 +514,73 @@ async function submitLogin(sys, form) {
     toast(`Đã đăng nhập ${LABELS[sys]}`);
     renderAccounts();
     renderStatus();
+    renderResults();
   } catch (e) {
     msg.textContent = e.message;
     if (e.expired) await beginLogin(sys);
   } finally {
     btn.disabled = false;
+    cancel.disabled = false;
   }
 }
 
 // ---------- gắn sự kiện ----------
+
 function bind() {
+  $('#status').addEventListener('click', () => showView('account'));
+  $('.brand').addEventListener('click', (e) => { e.preventDefault(); showView('search'); });
+  $('#selection-link').addEventListener('click', () => showView('basket'));
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-go-account]')) showView('account');
+    if (e.target.closest('[data-go-search]')) showView('search');
+    if (e.target.closest('[data-latest]')) {
+      $('#q').value = '';
+      state.q = '';
+      runSearch();
+    }
+    const retry = e.target.closest('[data-retry]');
+    if (retry) retrySource(retry.dataset.retry, retry);
+  });
+  document.addEventListener('keydown', (e) => {
+    const modal = !$('#ready').hidden ? $('#ready') : !$('#sheet').hidden ? $('#sheet') : null;
+    if (!modal) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (modal.id === 'ready') setOverlay('ready', false);
+      else history.back();
+    }
+    if (e.key === 'Tab') {
+      const targets = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), [tabindex="0"], a[href]')].filter((x) => x.getClientRects().length && !x.closest('[hidden], [inert]'));
+      const first = targets[0], last = targets.at(-1);
+      if (!first) { e.preventDefault(); modal.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === modal)) { e.preventDefault(); first.focus(); }
+    }
+  });
+  const networkState = () => { $('#network-notice').hidden = navigator.onLine; };
+  window.addEventListener('online', networkState);
+  window.addEventListener('offline', networkState);
+  networkState();
+  $('#date-apply').addEventListener('click', () => {
+    const from = $('#from').value, to = $('#to').value;
+    if (from && to && from > to) {
+      toast('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+      $('#to').focus();
+      return;
+    }
+    state.from = from; state.to = to;
+    $('#date-count').hidden = !(from || to);
+    $('.dates').open = false;
+    runSearch();
+  });
+  $('#date-clear').addEventListener('click', () => {
+    $('#from').value = ''; $('#to').value = '';
+    state.from = ''; state.to = '';
+    $('#date-count').hidden = true;
+    $('.dates').open = false;
+    runSearch();
+  });
+
   document.querySelector('.tabbar').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
     if (b) showView(b.dataset.view);
@@ -491,6 +627,15 @@ function bind() {
         setPicked(it, e.target.checked);
         if (sel === '#basket-list') renderBasket();
       } else if (e.target.closest('.main')) openDetail(it);
+
+    });
+    $(sel).addEventListener('keydown', (e) => {
+      const main = e.target.closest('.doc .main');
+      if (!main || !['Enter', ' '].includes(e.key)) return;
+      e.preventDefault();
+      const key = main.closest('.doc').dataset.key;
+      const it = itemIndex.get(key) || state.basket.get(key);
+      if (it) openDetail(it);
     });
   }
   $('#basket-actions').addEventListener('click', (e) => {
@@ -498,37 +643,56 @@ function bind() {
     if (e.target.id === 'dl-each') downloadBasket(false);
     if (e.target.id === 'dl-clear') {
       state.basket.clear();
-      $('#basket-count').textContent = 0;
-      document.querySelectorAll('.pick').forEach((c) => (c.checked = false));
+      updateSelection();
       renderBasket();
     }
   });
 
   $('#sheet-close').addEventListener('click', () => history.back());
-  window.addEventListener('popstate', closeDetail);
+  window.addEventListener('popstate', () => {
+    if (!$('#ready').hidden) setOverlay('ready', false);
+    closeDetail();
+  });
 
   $('#ready-share').addEventListener('click', async () => {
     const files = pending.map((f) => new File([f.blob], f.name, { type: f.blob.type || 'application/octet-stream' }));
     try {
       await navigator.share({ files });
-      $('#ready').hidden = true;
+      setOverlay('ready', false);
     } catch (e) {
       if (e.name !== 'AbortError') toast('Không mở được bảng chia sẻ, hãy dùng "Tải xuống"');
     }
   });
   $('#ready-save').addEventListener('click', () => {
     saveViaAnchor(pending);
-    $('#ready').hidden = true;
+    setOverlay('ready', false);
   });
-  $('#ready-close').addEventListener('click', () => ($('#ready').hidden = true));
+  $('#ready-close').addEventListener('click', () => setOverlay('ready', false));
 
   $('#accounts').addEventListener('click', (e) => {
-    const t = e.target;
+
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.search) {
+      state.sources[t.dataset.search] = true;
+      localStorage.setItem('qlvb.sources', JSON.stringify(state.sources));
+      renderChips(); showView('search'); runSearch();
+    }
+    if (t.dataset.cancelLogin) {
+      loginVersions[t.dataset.cancelLogin]++;
+      delete logins[t.dataset.cancelLogin];
+      const card = t.closest('.card');
+      card.querySelector('form').reset();
+      card.querySelector('form').hidden = true;
+      card.querySelector('[data-login]').parentElement.hidden = false;
+      card.querySelector('[data-login]').focus();
+    }
     if (t.dataset.login) beginLogin(t.dataset.login);
     if (t.dataset.logout) {
       auth.clear(t.dataset.logout);
       renderAccounts();
       renderStatus();
+      runSearch();
     }
     if (t.dataset.recaptcha) {
       const sys = t.dataset.recaptcha;

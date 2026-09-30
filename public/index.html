@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>QLVB Mobile</title>
-  <meta name="theme-color" content="#0f4c5c">
+  <meta name="theme-color" content="#eef4f7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="QLVB">
@@ -14,88 +14,77 @@
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-document" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m14 5-7 7 7 7"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-11 5h2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3m-8 14 11-11"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 14 6M4 12a8 8 0 0 0 14 6"/></symbol>
+  </svg>
   <header class="topbar">
-    <h1>QLVB Mobile</h1>
-    <span class="status" id="status"></span>
+    <a class="brand" href="#" aria-label="QLVB Mobile — Tra cứu"><span class="brand-mark"><svg class="icon"><use href="#i-document"/></svg></span><span><strong>QLVB <span>Mobile</span></strong><small>Văn bản trong tầm tay</small></span></a>
+    <button class="status" id="status" type="button" aria-label="Xem tài khoản"></button>
   </header>
-
-  <main>
-    <!-- TRA CỨU -->
-    <section id="view-search" class="view">
-      <form id="search-form" class="search-box" autocomplete="off">
-        <input id="q" type="search" enterkeyhint="search" placeholder="Số ký hiệu hoặc trích yếu…">
-        <button type="submit" class="btn primary">Tìm</button>
-      </form>
-      <div class="filters">
-        <div class="seg" role="radiogroup" aria-label="Loại văn bản">
-          <button type="button" data-kind="den" class="on" aria-pressed="true">Văn bản đến</button>
-          <button type="button" data-kind="di" aria-pressed="false">Văn bản đi</button>
-        </div>
-        <div class="chips" id="source-chips"></div>
-        <label class="sort-row">Sắp xếp theo ngày
-          <select id="sort">
-            <option value="desc">Mới nhất trước</option>
-            <option value="asc">Cũ nhất trước</option>
-          </select>
-        </label>
-        <details class="dates">
-          <summary>Lọc theo ngày ban hành <small>(chỉ csdlvb)</small></summary>
-          <div class="date-row">
-            <label>Từ <input type="date" id="from"></label>
-            <label>Đến <input type="date" id="to"></label>
+  <div id="network-notice" class="network-notice" role="status" hidden>Bạn đang ngoại tuyến. Kết nối mạng để tra cứu và tải văn bản.</div>
+  <main id="main-content">
+    <section id="view-search" class="view" aria-labelledby="search-title">
+      <div class="page-intro"><p class="eyebrow">KHÔNG GIAN LÀM VIỆC</p><h1 id="search-title">Tra cứu văn bản</h1><p>Tìm nhanh. Xem rõ. Tải thuận tiện.</p></div>
+      <div class="search-panel glass">
+        <form id="search-form" class="search-box" autocomplete="off" role="search">
+          <label class="search-input" for="q"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Số ký hiệu hoặc trích yếu văn bản</span><input id="q" type="search" enterkeyhint="search" placeholder="Số ký hiệu / trích yếu…"></label>
+          <button type="submit" class="btn primary">Tìm</button>
+        </form>
+        <div class="filters">
+          <div class="seg" role="group" aria-label="Loại văn bản"><button type="button" data-kind="den" class="on" aria-pressed="true">Văn bản đến</button><button type="button" data-kind="di" aria-pressed="false">Văn bản đi</button></div>
+          <div class="source-row"><span class="field-label">Nguồn dữ liệu</span><div class="chips" id="source-chips"></div></div>
+          <div class="filter-footer">
+            <details class="dates">
+              <summary><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg><span>Ngày ban hành</span><span id="date-count" class="filter-count" hidden>Đang lọc</span></summary>
+              <div class="date-panel">
+                <p class="hint">Áp dụng cho CSDL văn bản (csdlvb). Kết quả egov1 không lọc theo khoảng ngày.</p>
+                <div class="date-row"><label for="from">Từ ngày<input type="date" id="from"></label><label for="to">Đến ngày<input type="date" id="to"></label></div>
+                <div class="actions"><button type="button" id="date-apply" class="btn primary">Áp dụng</button><button type="button" id="date-clear" class="btn">Xóa lọc ngày</button></div>
+              </div>
+            </details>
+            <label class="sort-row" for="sort"><span class="sr-only">Sắp xếp theo ngày</span><svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg><select id="sort"><option value="desc">Mới nhất trước</option><option value="asc">Cũ nhất trước</option></select></label>
           </div>
-        </details>
+        </div>
       </div>
+      <div class="results-toolbar"><div><h2>Kết quả tra cứu</h2><p id="result-summary" class="hint" role="status">Chọn nguồn để bắt đầu</p></div><button id="selection-link" type="button" class="btn compact" hidden></button></div>
       <div id="results" class="results"></div>
-      <div class="more-wrap"><button id="more" class="btn" hidden>Tải thêm</button></div>
+      <div class="more-wrap"><button id="more" class="btn" hidden>Xem thêm văn bản</button></div>
     </section>
-
-    <!-- ĐÃ CHỌN -->
-    <section id="view-basket" class="view" hidden>
-      <h2>Văn bản đã chọn để tải</h2>
-      <p class="hint">Mỗi văn bản sẽ tải toàn bộ file đính kèm. Trong trang chi tiết bạn có thể chọn từng file.</p>
+    <section id="view-basket" class="view" aria-labelledby="basket-title" hidden>
+      <div class="page-intro"><p class="eyebrow">DANH SÁCH TẢI</p><h1 id="basket-title">Văn bản đã chọn</h1><p>Tập hợp văn bản, tải xuống trong một lần.</p></div>
+      <div class="info-banner"><svg class="icon" aria-hidden="true"><use href="#i-clip"/></svg><p>Mỗi văn bản sẽ tải toàn bộ tệp đính kèm. Mở chi tiết để chọn riêng từng tệp.</p></div>
       <div id="basket-list" class="results"></div>
-      <div class="actions" id="basket-actions"></div>
+      <div class="actions basket-actions glass" id="basket-actions" hidden></div>
     </section>
-
-    <!-- TÀI KHOẢN -->
-    <section id="view-account" class="view" hidden>
-      <h2>Tài khoản</h2>
-      <p class="hint">Hai hệ thống dùng chung SSO nhưng mỗi tài khoản được đăng nhập trong một phiên riêng biệt,
-        không ảnh hưởng lẫn nhau. Mật khẩu không được lưu.</p>
+    <section id="view-account" class="view" aria-labelledby="account-title" hidden>
+      <div class="page-intro"><p class="eyebrow">KẾT NỐI HỆ THỐNG</p><h1 id="account-title">Tài khoản của bạn</h1><p>Đăng nhập để bắt đầu tra cứu văn bản.</p></div>
       <div id="accounts"></div>
+      <div class="privacy-note"><span class="privacy-icon"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg></span><div><strong>Phiên đăng nhập riêng biệt</strong><p>Hai hệ thống dùng chung SSO. Bạn có thể đăng nhập từng hệ thống bằng tài khoản riêng. Mật khẩu không được lưu.</p></div></div>
     </section>
   </main>
-
-  <!-- CHI TIẾT -->
-  <div id="sheet" class="sheet" hidden>
-    <div class="sheet-head">
-      <button class="btn ghost" id="sheet-close" aria-label="Đóng">‹ Quay lại</button>
-      <span id="sheet-badge" class="badge"></span>
-    </div>
-    <div id="sheet-body" class="sheet-body"></div>
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="Chi tiết văn bản" tabindex="-1" hidden>
+    <div class="sheet-head"><button class="btn ghost" id="sheet-close"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>Quay lại</button><span class="sheet-label">Chi tiết văn bản</span><span id="sheet-badge" class="badge"></span></div><div id="sheet-body" class="sheet-body"></div>
   </div>
-
-  <!-- KẾT QUẢ TẢI -->
-  <div id="ready" class="ready" hidden>
-    <div class="ready-card">
-      <p id="ready-text"></p>
-      <div class="actions">
-        <button class="btn primary" id="ready-share" hidden>Lưu / Chia sẻ…</button>
-        <button class="btn primary" id="ready-save">Tải xuống</button>
-        <button class="btn ghost" id="ready-close">Đóng</button>
-      </div>
-    </div>
+  <div id="ready" class="ready" role="dialog" aria-modal="true" aria-labelledby="ready-title" tabindex="-1" hidden>
+    <div class="ready-card glass"><span class="ready-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><h2 id="ready-title">Tệp đã sẵn sàng</h2><p id="ready-text"></p><div class="actions"><button class="btn primary" id="ready-share" hidden>Lưu / Chia sẻ…</button><button class="btn primary" id="ready-save">Tải xuống</button><button class="btn ghost" id="ready-close">Đóng</button></div></div>
   </div>
-
-  <div id="toast" class="toast" hidden></div>
-
-  <nav class="tabbar">
-    <button data-view="search" class="on">🔎<span>Tra cứu</span></button>
-    <button data-view="basket">📥<span>Đã chọn <b id="basket-count">0</b></span></button>
-    <button data-view="account">👤<span>Tài khoản</span></button>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <nav class="tabbar glass" aria-label="Điều hướng chính">
+    <button type="button" data-view="search" class="on" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Tra cứu</span></button>
+    <button type="button" data-view="basket"><span class="tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><b id="basket-count" hidden>0</b></span><span>Đã chọn</span></button>
+    <button type="button" data-view="account"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span>Tài khoản</span></button>
   </nav>
-
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

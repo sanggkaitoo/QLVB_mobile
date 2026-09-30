@@ -30,6 +30,24 @@ async function token() {
   return a;
 }
 
+// Upstream database failures can arrive as HTTP 200 with a .NET stack trace.
+// Preserve diagnostics for the console while showing a useful message in the UI.
+function upstreamError(message, status) {
+  const raw = String(message || '');
+  const error = new Error(raw || `egov1 lỗi (${status})`);
+  error.sys = SYS;
+  if (/timeout.*(?:connection from the pool|pooled connections|max pool size)/i.test(raw)) {
+    error.code = 'EGOV_DATABASE_BUSY';
+    error.message = 'Máy chủ egov1 đang hết thời gian chờ kết nối cơ sở dữ liệu. Chưa thể lấy danh sách văn bản. Vui lòng thử lại sau ít phút.';
+    error.cause = new Error(raw);
+  } else if (/System\.[\w.]+Exception|OracleException/i.test(raw)) {
+    error.code = 'EGOV_SERVER_ERROR';
+    error.message = 'Máy chủ egov1 gặp lỗi khi xử lý yêu cầu. Vui lòng thử lại sau.';
+    error.cause = new Error(raw);
+  }
+  return error;
+}
+
 async function api(path) {
   let a = await token();
   let res = await fetch(`${GW}/ioffice${path}`, { headers: { authorization: `Bearer ${a.accessToken}` } });
@@ -40,7 +58,7 @@ async function api(path) {
   }
   if (res.status === 401) throw new AuthError(SYS);
   const j = await res.json();
-  if (j.code !== 'OK') throw new Error(j.message || `egov1 lỗi (${res.status})`);
+  if (j.code !== 'OK') throw upstreamError(j.message, res.status);
   return j.value;
 }
 
