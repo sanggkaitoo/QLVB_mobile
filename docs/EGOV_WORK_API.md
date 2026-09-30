@@ -1,4 +1,4 @@
-# Tra cứu tiến độ văn bản trình egov1
+# Nhiệm vụ egov1: văn bản trình và văn bản chờ xử lý
 
 Khảo sát trực tiếp ngày 30/09/2026 trên phiên egov được người dùng cho phép; đối chiếu màn hình danh sách, chi tiết, lịch sử luân chuyển và tiến trình xử lý. Tính năng chỉ đọc, không gửi trình/duyệt/ký/trả lại.
 
@@ -54,3 +54,29 @@ Lượt khảo sát đầu: Chờ xử lý 2, Đã xử lý 2, Chờ phát hành
 Kiểm tra tự động: đọc nhiều trang API, loại trùng giữa nhóm, người nhận trả lại, đầy đủ ý kiến trả lại, lọc/tìm không dấu, phân trang, phiên hết hạn, nguồn lỗi một phần, đóng chi tiết khi đang tải, trạng thái lạ/null, múi giờ, không tràn ngang ở 320/390/768/1024 px, giao diện tối. Các kiểm tra tra cứu văn bản, phân trang cũ và lỗi pool egov vẫn qua.
 
 Mã: `public/js/egov-work.js` (API/model), `public/js/progress.js` (UI), `public/js/egov1.js` (dùng chung phiên và refresh). Không đưa Bearer token hay nội dung hồ sơ thật vào source/fixture của app.
+
+
+## Danh mục Văn bản chờ xử lý (`/work/unit/main/1`)
+
+Bổ sung ngày 30/09/2026, khảo sát lại danh sách và chi tiết trên phiên egov đang đăng nhập. Lượt khảo sát đầu có 10 nhiệm vụ trong Chờ xử lý; tổng có thể thay đổi trong ngày.
+
+API danh sách đã xác minh: `GET /work/api/works/v1?page=1&length=10&term=&archiveSearch=false&type=waiting&isLoading=true&defer=true&skip=0`. Trả `{data, total}`. Không gửi `WorkCreateType=1` hay `currentType` của danh mục văn bản trình. Chi tiết vẫn dùng `GET /work/api/works/{id}?includeChildren=false&readContext=false`.
+
+Các trường bổ sung:
+
+- `documentApis[].symbol/abridgment/documentSentCompany/publishTime`: số ký hiệu, trích yếu, đơn vị phát hành và ngày văn bản. `publishBy` có thể là đơn vị tiếp nhận; ưu tiên `documentSentCompany` làm đơn vị phát hành.
+- `documentApis[].attachments` và `attachmentApis`: tên tệp đính kèm, loại trùng theo ID/path.
+- `createdUserId`, `userSender`, `userSenderId`: người giao việc ban đầu, ánh xạ qua `userApis`.
+- `userMonitors`: người phụ trách; `userApis` có vai trò XLC và thời điểm tham gia để xác định người nhận trong lần giao mới nhất.
+- `assignTransitions` loại Process/Refuse (`followType=1/9`): lần giao hiện tại và người giao gần nhất. Không dùng người tạo nhiệm vụ làm người đang xử lý.
+- `deadLineDate`: hạn thực hiện, nếu null thì hiển thị Chưa có hạn xử lý.
+
+Một mẫu thực tế có `profileStatus=RefuseCensorship` nhưng sau đó có thêm hai lần giao Process tới người xử lý mới. Vì vậy không suy ra đang trả lại chỉ từ profileStatus. Danh mục mới ưu tiên lần giao gần nhất tới người XLC hiện hành; vẫn giữ ý kiến trả lại cũ trong lịch sử và ghi Đã từng trả lại trên thẻ. Thời điểm cập nhật thẻ bao gồm lần giao mới hơn workingDate.
+
+Giao diện: tab **Nhiệm vụ** có lựa chọn **Văn bản trình / Văn bản chờ xử lý**. Navbar theo thứ tự **Tra cứu → Đã chọn → Tài khoản → Nhiệm vụ**. Hai danh mục không cộng chung số lượng; đọc đầy đủ từng danh mục và phân trang 5/10/20/50/100. Tìm kiếm thêm theo số ký hiệu, đơn vị phát hành, người giao và người phụ trách; chữ Đ/đ và dấu tiếng Việt đều được chuẩn hóa.
+
+Đã kiểm tra dữ liệu mô phỏng nhiều trang, lỗi ở trang thứ hai vẫn giữ phần tải được và thông báo chưa đầy đủ, tên/đơn vị có Đ viết hoa, trường null, trả lại rồi giao tiếp, trả lại hiện hành, chi tiết văn bản liên kết/tệp, chuyển danh mục lúc đang tải, phiên hết hạn, navbar và giao diện 320/390/768/1024 px. Kiểm tra danh mục văn bản trình trước đó vẫn qua.
+
+Kiểm chứng UI với API thật được thực hiện bằng trình duyệt kiểm tra đọc giao diện từ file; không khởi động lại server phát triển, không thay đổi container Docker. Không lưu token vào artifact/source.
+
+Lượt kiểm chứng app lúc 2026-09-30T08:56:59.211Z: API trả 12 nhiệm vụ; mở một chi tiết có 1 văn bản liên kết và 3 tệp. Mọi yêu cầu tiến độ là GET, chi tiết readContext=false, không lỗi JavaScript.

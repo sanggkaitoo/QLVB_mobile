@@ -1,5 +1,5 @@
 // Chỉ cache giao diện (app shell). Không bao giờ cache API hay file văn bản.
-const CACHE = 'qlvb-shell-v8';
+const CACHE = 'qlvb-shell-v9';
 // ngrok (gói free) chèn trang cảnh báo trước request từ trình duyệt; header này bỏ qua trang đó.
 const SKIP_WARNING = { 'ngrok-skip-browser-warning': '1' };
 const SHELL = ['/', '/index.html', '/app.css', '/js/app.js', '/js/store.js', '/js/egov1.js', '/js/csdlvb.js', '/js/zip.js', '/js/egov-work.js', '/js/progress.js',

@@ -152,7 +152,7 @@ export async function download(file) {
 
 // Read-only draft progress endpoints; shares the existing egov session and refresh.
 export async function workGet(path) {
-  if (!/^\/api\/works\/(?:v2\?|[a-f0-9-]+\?includeChildren=false&readContext=false$)/i.test(path)) throw new Error('API tiến độ không hợp lệ');
+  if (!/^\/api\/works\/(?:v[12]\?|[a-f0-9-]+\?includeChildren=false&readContext=false$)/i.test(path)) throw new Error('API tiến độ không hợp lệ');
   let a = await token();
   const read = () => fetch(`${GW}/work${path}`, { headers: { authorization: `Bearer ${a.accessToken}` } });
   let res = await read();

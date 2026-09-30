@@ -69,13 +69,14 @@
       <nav id="pagination-bottom" class="pagination pagination-bottom glass" aria-label="Phân trang kết quả phía dưới" hidden></nav>
     </section>
     <section id="view-progress" class="view" aria-labelledby="progress-title" hidden>
-      <div class="page-intro"><p class="eyebrow">VĂN BẢN TRÌNH · EGOV1</p><h1 id="progress-title">Tiến độ trình</h1><p>Theo dõi đang ở ai, đã chuyển đến đâu và ý kiến trả lại.</p></div>
+      <div class="page-intro"><p class="eyebrow" id="work-eyebrow">VĂN BẢN TRÌNH · EGOV1</p><h1 id="progress-title">Nhiệm vụ</h1><p id="work-intro">Theo dõi đang ở ai, đã chuyển đến đâu và ý kiến trả lại.</p></div>
+      <div id="work-catalogs" class="seg work-catalogs" role="group" aria-label="Danh mục theo dõi"><button type="button" class="on" data-work-catalog="drafts" aria-pressed="true">Văn bản trình</button><button type="button" data-work-catalog="pending" aria-pressed="false">Văn bản chờ xử lý</button></div>
       <div class="work-controls glass">
         <div class="work-tools"><label class="search-input" for="work-q"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Tìm nhiệm vụ, người nhận hoặc ý kiến</span><input id="work-q" type="search" placeholder="Nhiệm vụ / người nhận / ý kiến…"></label><button id="work-refresh" class="btn" type="button" aria-label="Cập nhật tiến độ"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span>Cập nhật</span></button></div>
         <div id="work-filters" class="work-filters" role="group" aria-label="Lọc nhóm văn bản trình"></div>
-        <p class="hint work-explanation">“Đã xử lý” vẫn có thể đang chờ lãnh đạo duyệt. Văn bản trả lại nằm trong Chờ xử lý.</p>
+        <p id="work-explanation" class="hint work-explanation">“Đã xử lý” vẫn có thể đang chờ lãnh đạo duyệt. Văn bản trả lại nằm trong Chờ xử lý.</p>
       </div>
-      <div class="results-toolbar"><div><h2>Nhiệm vụ văn bản trình</h2><p id="work-summary" class="hint" role="status"></p><p id="work-updated" class="hint"></p></div></div>
+      <div class="results-toolbar"><div><h2 id="work-list-title">Nhiệm vụ văn bản trình</h2><p id="work-summary" class="hint" role="status"></p><p id="work-updated" class="hint"></p></div></div>
       <div id="work-errors"></div>
       <div class="pagination-bar"><label class="page-size" for="work-size">Nhiệm vụ / trang<select id="work-size"><option>5</option><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label><nav id="work-pagination-top" class="pagination" aria-label="Phân trang tiến độ phía trên" hidden></nav></div>
       <div id="work-results" class="results" aria-busy="false"></div>
@@ -102,9 +103,9 @@
   <div id="toast" class="toast" role="status" hidden></div>
   <nav class="tabbar glass" aria-label="Điều hướng chính">
     <button type="button" data-view="search" class="on" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Tra cứu</span></button>
-    <button type="button" data-view="progress"><svg class="icon" aria-hidden="true"><use href="#i-progress"/></svg><span>Tiến độ trình</span></button>
     <button type="button" data-view="basket"><span class="tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><b id="basket-count" hidden>0</b></span><span>Đã chọn</span></button>
     <button type="button" data-view="account"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span>Tài khoản</span></button>
+    <button type="button" data-view="progress"><svg class="icon" aria-hidden="true"><use href="#i-progress"/></svg><span>Nhiệm vụ</span></button>
   </nav>
   <script type="module" src="/js/app.js"></script>
 </body>

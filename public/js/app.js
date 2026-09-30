@@ -523,8 +523,8 @@ async function openDetail(it) {
 // Both detail views share one modal and one version guard.
 async function openProgressSheet(item, fetchMarkup, fallback) {
   const version = ++detailVersion;
-  $('#sheet').setAttribute('aria-label', 'Chi tiết tiến độ trình');
-  $('.sheet-label').textContent = 'Tiến độ trình';
+  $('#sheet').setAttribute('aria-label', 'Chi tiết nhiệm vụ');
+  $('.sheet-label').textContent = 'Chi tiết nhiệm vụ';
   $('#sheet-badge').className = 'badge egov1';
   $('#sheet-badge').textContent = 'egov1';
   $('#sheet-body').innerHTML = loadingMarkup('Đang cập nhật tiến trình…');
@@ -711,11 +711,11 @@ function bind() {
     $('#q').blur();
     runSearch();
   });
-  document.querySelector('.seg').addEventListener('click', (e) => {
+  document.querySelector('#view-search .seg').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-kind]');
     if (!b || b.dataset.kind === state.kind) return;
     state.kind = b.dataset.kind;
-    document.querySelectorAll('.seg button').forEach((x) => {
+    document.querySelectorAll('#view-search .seg button').forEach((x) => {
       x.classList.toggle('on', x === b);
       x.setAttribute('aria-pressed', x === b);
     });

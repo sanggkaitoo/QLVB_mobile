@@ -9,6 +9,17 @@ lib/sso.js       auth broker: đăng nhập SSO login.yenbai.gov.vn trong cookie
 public/          PWA: giao diện, service worker, adapter egov1.js / csdlvb.js (gọi thẳng API, CORS *)
 ```
 
+## Danh mục trong app
+
+Navbar: **Tra cứu → Đã chọn → Tài khoản → Nhiệm vụ**.
+
+Trong **Nhiệm vụ**, chọn:
+
+- **Văn bản trình**: theo dõi Chờ xử lý, Đã xử lý, Chờ phát hành; người đang nhận trình và ý kiến trả lại.
+- **Văn bản chờ xử lý**: danh sách tương ứng egov `/work/unit/main/1`, gồm số văn bản, đơn vị phát hành, người giao, người xử lý chính, hạn và lịch sử.
+
+Hai danh mục đọc theo quyền tài khoản egov1, hỗ trợ tìm kiếm và phân trang 5/10/20/50/100. Không thực hiện giao việc, trình duyệt hay đánh dấu đã xem. Chi tiết API: [docs/EGOV_WORK_API.md](docs/EGOV_WORK_API.md).
+
 ## Bật / tắt
 
 ```bash

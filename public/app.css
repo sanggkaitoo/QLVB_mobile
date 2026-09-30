@@ -317,3 +317,12 @@ dl.fields dd { margin: 0; font-size: .92rem; overflow-wrap: anywhere; }
 @media (max-width: 380px) { .work-tools { flex-wrap: wrap; } .work-tools .search-input { flex-basis: 100%; } .work-tools > button { margin-left: auto; } .work-controls { padding: 12px; } .work-card { padding: 14px; } .tabbar { left: 10px; right: 10px; } }
 
 @media (max-width: 600px) { .work-tools #work-refresh { min-width: 48px; padding: 12px; } .work-tools #work-refresh span { display: none; } }
+
+.work-catalogs { margin: 0 0 16px; display: flex; width: 100%; }
+.work-catalogs button { flex: 1; min-height: 48px; white-space: normal; line-height: 1.4; }
+.work-documents { display: grid; gap: 8px; margin: 0 0 14px; border-left: 2px solid var(--brand); padding-left: 10px; }
+.work-documents strong, .work-documents span { display: block; font-size: .83rem; overflow-wrap: anywhere; }
+.work-documents span { color: var(--muted); margin-top: 2px; }
+.work-linked-docs > div { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; overflow-wrap: anywhere; }
+.work-linked-docs p { font-size: .9rem; margin: 8px 0; }
+.work-linked-docs span { font-size: .8rem; color: var(--muted); }
