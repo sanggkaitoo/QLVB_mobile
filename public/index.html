@@ -15,6 +15,7 @@
 </head>
 <body>
   <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-progress" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11m-17-6 2 2 3-4"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="18" r="1"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
     <symbol id="i-document" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
@@ -58,8 +59,27 @@
         </div>
       </div>
       <div class="results-toolbar"><div><h2>Kết quả tra cứu</h2><p id="result-summary" class="hint" role="status">Chọn nguồn để bắt đầu</p></div><button id="selection-link" type="button" class="btn compact" hidden></button></div>
+      <div class="pagination-bar" id="pagination-bar" hidden>
+        <label class="page-size" for="page-size">Văn bản / trang
+          <select id="page-size"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select>
+        </label>
+        <nav id="pagination-top" class="pagination" aria-label="Phân trang kết quả phía trên"></nav>
+      </div>
       <div id="results" class="results"></div>
-      <div class="more-wrap"><button id="more" class="btn" hidden>Xem thêm văn bản</button></div>
+      <nav id="pagination-bottom" class="pagination pagination-bottom glass" aria-label="Phân trang kết quả phía dưới" hidden></nav>
+    </section>
+    <section id="view-progress" class="view" aria-labelledby="progress-title" hidden>
+      <div class="page-intro"><p class="eyebrow">VĂN BẢN TRÌNH · EGOV1</p><h1 id="progress-title">Tiến độ trình</h1><p>Theo dõi đang ở ai, đã chuyển đến đâu và ý kiến trả lại.</p></div>
+      <div class="work-controls glass">
+        <div class="work-tools"><label class="search-input" for="work-q"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Tìm nhiệm vụ, người nhận hoặc ý kiến</span><input id="work-q" type="search" placeholder="Nhiệm vụ / người nhận / ý kiến…"></label><button id="work-refresh" class="btn" type="button" aria-label="Cập nhật tiến độ"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span>Cập nhật</span></button></div>
+        <div id="work-filters" class="work-filters" role="group" aria-label="Lọc nhóm văn bản trình"></div>
+        <p class="hint work-explanation">“Đã xử lý” vẫn có thể đang chờ lãnh đạo duyệt. Văn bản trả lại nằm trong Chờ xử lý.</p>
+      </div>
+      <div class="results-toolbar"><div><h2>Nhiệm vụ văn bản trình</h2><p id="work-summary" class="hint" role="status"></p><p id="work-updated" class="hint"></p></div></div>
+      <div id="work-errors"></div>
+      <div class="pagination-bar"><label class="page-size" for="work-size">Nhiệm vụ / trang<select id="work-size"><option>5</option><option>10</option><option selected>20</option><option>50</option><option>100</option></select></label><nav id="work-pagination-top" class="pagination" aria-label="Phân trang tiến độ phía trên" hidden></nav></div>
+      <div id="work-results" class="results" aria-busy="false"></div>
+      <nav id="work-pagination-bottom" class="pagination pagination-bottom glass" aria-label="Phân trang tiến độ phía dưới" hidden></nav>
     </section>
     <section id="view-basket" class="view" aria-labelledby="basket-title" hidden>
       <div class="page-intro"><p class="eyebrow">DANH SÁCH TẢI</p><h1 id="basket-title">Văn bản đã chọn</h1><p>Tập hợp văn bản, tải xuống trong một lần.</p></div>
@@ -82,6 +102,7 @@
   <div id="toast" class="toast" role="status" hidden></div>
   <nav class="tabbar glass" aria-label="Điều hướng chính">
     <button type="button" data-view="search" class="on" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span>Tra cứu</span></button>
+    <button type="button" data-view="progress"><svg class="icon" aria-hidden="true"><use href="#i-progress"/></svg><span>Tiến độ trình</span></button>
     <button type="button" data-view="basket"><span class="tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><b id="basket-count" hidden>0</b></span><span>Đã chọn</span></button>
     <button type="button" data-view="account"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span>Tài khoản</span></button>
   </nav>

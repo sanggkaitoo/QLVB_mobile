@@ -149,3 +149,21 @@ export async function download(file) {
   if (!res.ok) throw new Error(`Không tải được "${file.name}" (HTTP ${res.status})`);
   return res.blob();
 }
+
+// Read-only draft progress endpoints; shares the existing egov session and refresh.
+export async function workGet(path) {
+  if (!/^\/api\/works\/(?:v2\?|[a-f0-9-]+\?includeChildren=false&readContext=false$)/i.test(path)) throw new Error('API tiến độ không hợp lệ');
+  let a = await token();
+  const read = () => fetch(`${GW}/work${path}`, { headers: { authorization: `Bearer ${a.accessToken}` } });
+  let res = await read();
+  if (res.status === 401) {
+    a = await refresh(a);
+    if (!a) throw new AuthError(SYS);
+    res = await read();
+  }
+  if (res.status === 401) throw new AuthError(SYS);
+  if (res.status === 403) throw new Error('Tài khoản chưa có quyền xem văn bản trình này.');
+  const j = await res.json().catch(() => { throw new Error('Máy chủ egov1 trả về dữ liệu tiến độ không hợp lệ.'); });
+  if (!res.ok || (j.code && j.code !== 'OK')) throw upstreamError(j.message, res.status);
+  return j.code === 'OK' ? j.value : j;
+}

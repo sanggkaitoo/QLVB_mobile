@@ -1,6 +1,7 @@
 import { auth, AuthError } from './store.js';
 import * as egov1 from './egov1.js';
 import * as csdlvb from './csdlvb.js';
+import { initProgress } from './progress.js';
 import { makeZip } from './zip.js';
 
 const ADAPTERS = { egov1, csdlvb };
@@ -9,7 +10,8 @@ const TITLES = {
   egov1: 'Quản lý, điều hành',
   csdlvb: 'Cơ sở dữ liệu văn bản',
 };
-const PAGE_SIZE = 20;
+const PAGE_SIZES = [5, 10, 20, 50, 100];
+const savedPageSize = Number(localStorage.getItem('qlvb.pageSize'));
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) =>
@@ -22,7 +24,8 @@ const state = {
   sources: JSON.parse(localStorage.getItem('qlvb.sources') || '{"egov1":true,"csdlvb":true}'),
   sort: localStorage.getItem('qlvb.sort') === 'asc' ? 'asc' : 'desc',
   from: '', to: '', view: 'search',
-  pages: {}, // sys -> { page, total, items }
+  page: 1, pageSize: PAGE_SIZES.includes(savedPageSize) ? savedPageSize : 20, busy: false,
+  pages: {}, // sys -> { total, knownTotal, chunks: Map<apiPage, items>, errors: Map<apiPage, message> }
   basket: new Map(), // key -> item
 };
 
@@ -38,13 +41,14 @@ function toast(msg) {
 
 function showView(name) {
   state.view = name;
-  for (const v of ['search', 'basket', 'account']) $(`#view-${v}`).hidden = v !== name;
+  for (const v of ['search', 'progress', 'basket', 'account']) $(`#view-${v}`).hidden = v !== name;
   document.querySelectorAll('.tabbar button').forEach((b) => {
     const current = b.dataset.view === name;
     b.classList.toggle('on', current);
     if (current) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
+  if (name === 'progress') progress.enter();
   if (name === 'basket') renderBasket();
   if (name === 'account') renderAccounts();
   window.scrollTo(0, 0);
@@ -137,9 +141,66 @@ function docCard(it) {
 
 const itemIndex = new Map();
 
+function totalResults() {
+  return Object.values(state.pages).reduce((n, p) => n + p.total, 0);
+}
+function pageCount() {
+  return Math.max(1, Math.ceil(totalResults() / state.pageSize));
+}
+
+// A virtual alternating sequence keeps both sources visible while enforcing a
+// single page-size limit. Once a source runs out, use the remaining source.
+function pageWindows() {
+  const srcs = Object.keys(ADAPTERS).filter((s) => state.pages[s]?.knownTotal && state.pages[s].total > 0);
+  const windows = Object.fromEntries(srcs.map((s) => [s, []]));
+  const start = (state.page - 1) * state.pageSize;
+  const end = Math.min(start + state.pageSize, totalResults());
+  if (srcs.length === 1) {
+    for (let i = start; i < end; i++) windows[srcs[0]].push(i);
+  } else if (srcs.length === 2) {
+    const [a, b] = srcs;
+    const paired = Math.min(state.pages[a].total, state.pages[b].total);
+    const longer = state.pages[a].total > state.pages[b].total ? a : b;
+    for (let i = start; i < end; i++) {
+      const sys = i < paired * 2 ? srcs[i % 2] : longer;
+      windows[sys].push(i < paired * 2 ? Math.floor(i / 2) : paired + i - paired * 2);
+    }
+  }
+  return windows;
+}
+function windowItems(sys, indices) {
+  const p = state.pages[sys];
+  return indices.map((i) => p.chunks.get(Math.floor(i / state.pageSize) + 1)?.[i % state.pageSize]).filter(Boolean);
+}
+function windowError(sys, indices) {
+  const p = state.pages[sys];
+  if (!p.knownTotal) return p.errors.get(1);
+  for (const i of indices) {
+    const error = p.errors.get(Math.floor(i / state.pageSize) + 1);
+    if (error) return error;
+  }
+  return '';
+}
+function renderPagination() {
+  const total = totalResults();
+  const visible = total > 0;
+  $('#pagination-bar').hidden = false;
+  $('#pagination-top').hidden = !visible;
+  $('#pagination-bottom').hidden = !visible;
+  for (const position of ['top', 'bottom']) {
+    const box = $(`#pagination-${position}`);
+    box.innerHTML = `
+      <button type="button" class="btn page-button" data-page="prev" aria-label="Trang trước" ${state.busy || state.page <= 1 ? 'disabled' : ''}>${icon('back')}</button>
+      <div class="page-position"><label for="page-${position}">Trang <input id="page-${position}" class="page-jump" type="number" inputmode="numeric" min="1" max="${pageCount()}" value="${state.page}" aria-label="Đến trang" ${state.busy ? 'disabled' : ''}></label><span>/ ${pageCount().toLocaleString('vi-VN')}</span></div>
+      <button type="button" class="btn page-button" data-page="next" aria-label="Trang sau" ${state.busy || state.page >= pageCount() ? 'disabled' : ''}>${icon('arrow')}</button>`;
+  }
+}
+
 function renderResults() {
   const box = $('#results');
+  state.busy = false;
   box.setAttribute('aria-busy', 'false');
+  renderPagination();
   const srcs = Object.keys(ADAPTERS).filter((s) => state.pages[s]);
   if (!srcs.length) {
     const active = activeSources().length;
@@ -150,23 +211,29 @@ function renderResults() {
       : loggedIn
         ? emptyState('filter', 'Chọn nguồn dữ liệu', 'Chọn egov1 hoặc csdlvb ở phía trên để bắt đầu tra cứu.')
         : emptyState('lock', 'Kết nối để bắt đầu', 'Đăng nhập ít nhất một hệ thống để tìm và tải văn bản của bạn.', '<button type="button" class="btn primary" data-go-account>Đăng nhập tài khoản</button>');
-    $('#more').hidden = true;
     return;
   }
-  const pages = srcs.map((s) => state.pages[s]);
-  const loaded = pages.reduce((n, p) => n + p.items.length, 0);
-  const total = pages.reduce((n, p) => n + p.total, 0);
-  const errors = pages.filter((p) => p.error).length;
-  $('#result-summary').textContent = errors === pages.length
+  const windows = pageWindows();
+  const loaded = srcs.reduce((n, sys) => n + windowItems(sys, windows[sys] || []).length, 0);
+  const total = totalResults();
+  const errors = srcs.filter((sys) => windowError(sys, windows[sys] || [])).length;
+  const start = (state.page - 1) * state.pageSize + 1;
+  const end = Math.min(start + state.pageSize - 1, total);
+  $('#result-summary').textContent = errors === srcs.length && !loaded
     ? `Chưa lấy được kết quả · ${errors} nguồn gặp lỗi`
-    : `Hiển thị ${loaded.toLocaleString('vi-VN')} / ${total.toLocaleString('vi-VN')} văn bản${errors ? ` · ${errors} nguồn gặp lỗi` : ''}`;
-  box.innerHTML = srcs.map((s) => {
-    const p = state.pages[s];
-    const head = `<p class="group-head"><span class="badge ${s}">${LABELS[s]}</span>${p.items.length.toLocaleString('vi-VN')} / ${p.total.toLocaleString('vi-VN')} văn bản</p>`;
-    if (p.error) return `<p class="group-head"><span class="badge ${s}">${LABELS[s]}</span></p><div class="error" role="alert">${esc(p.error)}<div class="actions"><button type="button" class="btn" data-retry="${s}">Thử lại</button></div></div>`;
-    return head + (p.items.length ? p.items.map(docCard).join('') : emptyState('search', 'Chưa tìm thấy văn bản', 'Thử từ khóa ngắn hơn hoặc điều chỉnh bộ lọc.'));
+    : errors
+      ? `Trang ${state.page} · Hiển thị ${loaded} / ${total.toLocaleString('vi-VN')} văn bản · ${errors} nguồn gặp lỗi`
+      : `${loaded ? `Văn bản ${start.toLocaleString('vi-VN')}–${end.toLocaleString('vi-VN')}` : '0 văn bản'} / ${total.toLocaleString('vi-VN')}`;
+  box.innerHTML = srcs.map((sys) => {
+    const p = state.pages[sys], indices = windows[sys] || [];
+    const error = windowError(sys, indices);
+    if (!indices.length && p.total > 0 && !error) return '';
+    const items = windowItems(sys, indices);
+    const range = indices.length ? `${(indices[0] + 1).toLocaleString('vi-VN')}–${(indices.at(-1) + 1).toLocaleString('vi-VN')} / ${p.total.toLocaleString('vi-VN')} văn bản` : '0 văn bản';
+    const head = `<p class="group-head"><span class="badge ${sys}">${LABELS[sys]}</span>${error ? '' : range}</p>`;
+    if (error) return `${head}<div class="error" role="alert">${esc(error)}<div class="actions"><button type="button" class="btn" data-retry="${sys}">Thử lại</button></div></div>`;
+    return head + (items.length ? sortByDate(items).map(docCard).join('') : emptyState('search', 'Chưa tìm thấy văn bản', 'Thử từ khóa ngắn hơn hoặc điều chỉnh bộ lọc.'));
   }).join('');
-  $('#more').hidden = !srcs.some((s) => !state.pages[s].error && state.pages[s].items.length < state.pages[s].total);
 }
 
 // Sắp lại trên máy để thứ tự hiển thị luôn đúng (kể cả khi máy chủ bỏ qua tham số sắp xếp).
@@ -184,58 +251,89 @@ function sortByDate(items) {
 }
 
 let searchVersion = 0;
-async function loadPage(sys, page, version = searchVersion) {
-  const opts = { q: state.q, page, size: PAGE_SIZE, from: state.from, to: state.to, sort: state.sort };
+async function loadPage(sys, apiPage, version = searchVersion, force = false) {
+  if (!force && (state.pages[sys]?.chunks.has(apiPage) || state.pages[sys]?.errors.has(apiPage))) return;
+  const opts = { q: state.q, page: apiPage, size: state.pageSize, from: state.from, to: state.to, sort: state.sort };
   const kind = state.kind;
   try {
     const r = await ADAPTERS[sys].search(kind, opts);
     if (version !== searchVersion) return;
-    const prev = page > 1 ? state.pages[sys].items : [];
+    const p = state.pages[sys] ||= { total: 0, knownTotal: false, chunks: new Map(), errors: new Map() };
     r.items.forEach((it) => itemIndex.set(keyOf(it), it));
-    state.pages[sys] = { page, total: r.total, items: sortByDate(prev.concat(r.items)) };
+    p.total = r.total;
+    p.knownTotal = true;
+    // Keep API ordering in the cached chunks; sort only the displayed window.
+    p.chunks.set(apiPage, r.items);
+    p.errors.delete(apiPage);
   } catch (e) {
     if (version !== searchVersion) return;
-    state.pages[sys] = { page, total: 0, items: [], error: handleError(e) };
+    const p = state.pages[sys] ||= { total: 0, knownTotal: false, chunks: new Map(), errors: new Map() };
+    p.errors.set(apiPage, handleError(e));
   }
 }
-
+async function ensurePage(version) {
+  const windows = pageWindows();
+  await Promise.all(Object.entries(windows).flatMap(([sys, indices]) =>
+    [...new Set(indices.map((i) => Math.floor(i / state.pageSize) + 1))].map((apiPage) => loadPage(sys, apiPage, version))));
+}
+function searchLoading(message) {
+  state.busy = true;
+  $('#results').innerHTML = loadingMarkup(message);
+  $('#results').setAttribute('aria-busy', 'true');
+  $('#result-summary').textContent = message;
+  renderPagination();
+}
 async function runSearch() {
   const version = ++searchVersion;
   const srcs = activeSources();
+  state.page = 1;
   state.pages = {};
-  $('#more').disabled = false;
-  $('#more').textContent = 'Xem thêm văn bản';
+  itemIndex.clear();
   if (!srcs.length) return renderResults();
-  $('#results').innerHTML = loadingMarkup('Đang tìm văn bản…');
-  $('#results').setAttribute('aria-busy', 'true');
-  $('#result-summary').textContent = 'Đang tra cứu các nguồn đã chọn…';
-  $('#more').hidden = true;
-  await Promise.all(srcs.map((s) => loadPage(s, 1, version)));
+  searchLoading('Đang tìm văn bản…');
+  await Promise.all(srcs.map((sys) => loadPage(sys, 1, version)));
+  if (version !== searchVersion) return;
+  await ensurePage(version);
   if (version === searchVersion) renderResults();
 }
-
-// A manual retry should not reload another system whose results are already available.
+async function goToPage(page) {
+  if (state.busy) return;
+  const next = Math.max(1, Math.min(pageCount(), page));
+  if (next === state.page) return renderPagination();
+  const version = ++searchVersion;
+  state.page = next;
+  searchLoading(`Đang tải trang ${next}…`);
+  await ensurePage(version);
+  if (version !== searchVersion) return;
+  // If the source total shrank, move to the new last page instead of a blank page.
+  if (state.page > pageCount()) {
+    state.page = pageCount();
+    await ensurePage(version);
+    if (version !== searchVersion) return;
+  }
+  renderResults();
+  $('.results-toolbar').scrollIntoView({ block: 'start' });
+}
+// Retry only the failed source and keep the selected documents.
 async function retrySource(sys, button) {
+  if (state.busy) return;
   if (!activeSources().includes(sys)) return runSearch();
-  const version = searchVersion;
+  const version = ++searchVersion;
+  const p = state.pages[sys];
+  const hadTotal = p.knownTotal;
+  const indices = pageWindows()[sys] || [];
+  const chunks = !hadTotal ? [1] : [...new Set(indices.map((i) => Math.floor(i / state.pageSize) + 1))].filter((page) => p.errors.has(page));
   button.disabled = true;
   button.textContent = 'Đang thử lại…';
+  state.busy = true;
   $('#results').setAttribute('aria-busy', 'true');
-  await loadPage(sys, 1, version);
-  if (version === searchVersion) renderResults();
-}
-
-async function loadMore() {
-  const version = searchVersion;
-  const btn = $('#more');
-  btn.disabled = true;
-  btn.textContent = 'Đang tải…';
-  const todo = Object.keys(state.pages).filter((s) => !state.pages[s].error && state.pages[s].items.length < state.pages[s].total);
-  await Promise.all(todo.map((s) => loadPage(s, state.pages[s].page + 1, version)));
+  renderPagination();
+  await Promise.all(chunks.map((apiPage) => loadPage(sys, apiPage, version, true)));
   if (version !== searchVersion) return;
-  btn.disabled = false;
-  btn.textContent = 'Xem thêm văn bản';
-  renderResults();
+  if (!hadTotal && state.pages[sys].knownTotal) state.page = 1;
+  state.page = Math.min(state.page, pageCount());
+  await ensurePage(version);
+  if (version === searchVersion) renderResults();
 }
 
 // ---------- giỏ tải ----------
@@ -329,6 +427,8 @@ function saveViaAnchor(files) {
 let detailVersion = 0;
 async function openDetail(it) {
   const version = ++detailVersion;
+  $('#sheet').setAttribute('aria-label', 'Chi tiết văn bản');
+  $('.sheet-label').textContent = 'Chi tiết văn bản';
   const sheet = $('#sheet');
   $('#sheet-badge').className = `badge ${it.sys}`;
   $('#sheet-badge').textContent = LABELS[it.sys];
@@ -420,6 +520,25 @@ async function openDetail(it) {
   }
 }
 
+// Both detail views share one modal and one version guard.
+async function openProgressSheet(item, fetchMarkup, fallback) {
+  const version = ++detailVersion;
+  $('#sheet').setAttribute('aria-label', 'Chi tiết tiến độ trình');
+  $('.sheet-label').textContent = 'Tiến độ trình';
+  $('#sheet-badge').className = 'badge egov1';
+  $('#sheet-badge').textContent = 'egov1';
+  $('#sheet-body').innerHTML = loadingMarkup('Đang cập nhật tiến trình…');
+  setOverlay('sheet', true);
+  $('#sheet').scrollTop = 0;
+  history.pushState({sheet:true}, '');
+  try {
+    const markup = await fetchMarkup();
+    if (version === detailVersion) $('#sheet-body').innerHTML = markup;
+  } catch (e) {
+    if (version === detailVersion) $('#sheet-body').innerHTML = `<p class="work-error" role="alert">${esc(handleError(e))} Hiển thị dữ liệu đã tải từ danh sách.</p>${e instanceof AuthError ? '' : fallback}`;
+  }
+}
+
 function closeDetail() {
   detailVersion++;
   setOverlay('sheet', false);
@@ -508,6 +627,7 @@ async function submitLogin(sys, form) {
       return;
     }
     localStorage.setItem(`qlvb.user.${sys}`, form.username.value.trim());
+    if (sys === 'egov1') progress.reset();
     auth.set(sys, { accessToken: r.accessToken, refreshToken: r.refreshToken, expiresAt: r.expiresAt, user: r.user });
     delete logins[sys];
     state.sources[sys] = true;
@@ -608,7 +728,36 @@ function bind() {
     localStorage.setItem('qlvb.sources', JSON.stringify(state.sources));
     runSearch();
   });
-  $('#more').addEventListener('click', loadMore);
+
+  $('#page-size').value = state.pageSize;
+  $('#page-size').addEventListener('change', (e) => {
+    const size = Number(e.target.value);
+    if (!PAGE_SIZES.includes(size)) return;
+    state.pageSize = size;
+    localStorage.setItem('qlvb.pageSize', size);
+    if (Object.keys(state.pages).length || state.busy) runSearch();
+  });
+  for (const position of ['top', 'bottom']) {
+    const pager = $(`#pagination-${position}`);
+    pager.addEventListener('click', (e) => {
+      const button = e.target.closest('[data-page]');
+      if (!button || button.disabled) return;
+      goToPage(state.page + (button.dataset.page === 'next' ? 1 : -1));
+    });
+    pager.addEventListener('change', (e) => {
+      if (!e.target.matches('.page-jump')) return;
+      const page = Number(e.target.value);
+      e.target.blur();
+      if (Number.isInteger(page) && page > 0) goToPage(page);
+      else renderPagination();
+    });
+    pager.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('.page-jump')) {
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
+  }
   $('#sort').value = state.sort;
   $('#sort').addEventListener('change', (e) => {
     state.sort = e.target.value;
@@ -690,6 +839,7 @@ function bind() {
     if (t.dataset.login) beginLogin(t.dataset.login);
     if (t.dataset.logout) {
       auth.clear(t.dataset.logout);
+      if (t.dataset.logout === 'egov1') { progress.reset(); closeDetail(); }
       renderAccounts();
       renderStatus();
       runSearch();
@@ -707,6 +857,7 @@ function bind() {
   });
 }
 
+const progress = initProgress({ openSheet: openProgressSheet, handleError });
 bind();
 renderStatus();
 renderResults();
