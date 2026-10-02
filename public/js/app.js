@@ -3,6 +3,7 @@ import { auth, AuthError } from './store.js';
 import * as egov1 from './egov1.js';
 import * as csdlvb from './csdlvb.js';
 import { initProgress } from './progress.js';
+import { initXlc } from './xlc.js';
 import { makeZip } from './zip.js';
 
 const ADAPTERS = { egov1, csdlvb };
@@ -42,7 +43,7 @@ function toast(msg) {
 
 function showView(name) {
   state.view = name;
-  for (const v of ['search', 'progress', 'basket', 'account']) $(`#view-${v}`).hidden = v !== name;
+  for (const v of ['search', 'progress', 'xlc', 'basket', 'account']) $(`#view-${v}`).hidden = v !== name;
   document.querySelectorAll('.tabbar button').forEach((b) => {
     const current = b.dataset.view === name;
     b.classList.toggle('on', current);
@@ -50,6 +51,7 @@ function showView(name) {
     else b.removeAttribute('aria-current');
   });
   if (name === 'progress') progress.enter();
+  if (name === 'xlc') xlc.enter();
   if (name === 'basket') renderBasket();
   if (name === 'account') renderAccounts();
   window.scrollTo(0, 0);
@@ -524,10 +526,10 @@ async function openDetail(it) {
 }
 
 // Both detail views share one modal and one version guard.
-async function openProgressSheet(item, fetchMarkup, fallback) {
+async function openProgressSheet(item, fetchMarkup, fallback, label = 'Chi tiết nhiệm vụ') {
   const version = ++detailVersion;
-  $('#sheet').setAttribute('aria-label', 'Chi tiết nhiệm vụ');
-  $('.sheet-label').textContent = 'Chi tiết nhiệm vụ';
+  $('#sheet').setAttribute('aria-label', label);
+  $('.sheet-label').textContent = label;
   $('#sheet-badge').className = 'badge egov1';
   $('#sheet-badge').textContent = 'egov1';
   $('#sheet-body').innerHTML = loadingMarkup('Đang cập nhật tiến trình…');
@@ -630,7 +632,7 @@ async function submitLogin(sys, form) {
       return;
     }
     localStorage.setItem(`qlvb.user.${sys}`, form.username.value.trim());
-    if (sys === 'egov1') progress.reset();
+    if (sys === 'egov1') { progress.reset(); xlc.reset(); }
     auth.set(sys, { accessToken: r.accessToken, refreshToken: r.refreshToken, expiresAt: r.expiresAt, user: r.user });
     delete logins[sys];
     state.sources[sys] = true;
@@ -842,7 +844,7 @@ function bind() {
     if (t.dataset.login) beginLogin(t.dataset.login);
     if (t.dataset.logout) {
       auth.clear(t.dataset.logout);
-      if (t.dataset.logout === 'egov1') { progress.reset(); closeDetail(); }
+      if (t.dataset.logout === 'egov1') { progress.reset(); xlc.reset(); closeDetail(); }
       renderAccounts();
       renderStatus();
       runSearch();
@@ -862,6 +864,7 @@ function bind() {
 
 const navigation = initNavigation();
 const progress = initProgress({ openSheet: openProgressSheet, handleError });
+const xlc = initXlc({ openSheet: openProgressSheet, handleError });
 bind();
 renderStatus();
 renderResults();

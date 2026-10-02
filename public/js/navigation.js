@@ -21,8 +21,9 @@ export function initNavigation() {
     last = y;
     if (!compact.matches || suspended || inNavigation() || performance.now() < resizingUntil) { reveal(); travel = 0; return; }
     if (editing()) { travel = 0; return; }
-    // Clamp rubber-band overscroll, keep navigation at page edges and on short screens.
-    if (y <= 64 || max - y <= 24 || max <= 96) { reveal(); travel = 0; direction = 0; return; }
+    // Hiện ở đầu trang và trang ngắn. Ở cuối trang KHÔNG tự hiện: chỉ hiện khi người dùng kéo ngược lên.
+    // y đã bị kẹp trong [0, max] nên hiệu ứng nảy (rubber-band) ở cuối trang không tạo ra delta.
+    if (y <= 64 || max <= 96) { reveal(); travel = 0; direction = 0; return; }
     if (Math.abs(delta) < 1) return;
     const nextDirection = Math.sign(delta);
     if (nextDirection !== direction) { direction = nextDirection; travel = 0; }

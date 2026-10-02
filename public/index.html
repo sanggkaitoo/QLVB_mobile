@@ -27,6 +27,7 @@
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
     <symbol id="i-clip" viewBox="0 0 24 24"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3m-8 14 11-11"/></symbol>
+    <symbol id="i-xlc" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5M14 3v6h6v2"/><circle cx="16.5" cy="16.5" r="3.5"/><path d="m19 19 2.5 2.5M8 13h3M8 17h1"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 14 6M4 12a8 8 0 0 0 14 6"/></symbol>
   </svg>
   <a class="skip-link" href="#primary-navigation">Đi đến điều hướng</a>
@@ -83,6 +84,16 @@
       <div id="work-results" class="results" aria-busy="false"></div>
       <nav id="work-pagination-bottom" class="pagination pagination-bottom glass" aria-label="Phân trang tiến độ phía dưới" hidden></nav>
     </section>
+    <section id="view-xlc" class="view" aria-labelledby="xlc-title" hidden>
+      <div class="page-intro"><p class="eyebrow">VĂN BẢN ĐẾN · EGOV1</p><h1 id="xlc-title">Xem XLC</h1><p>Hồ sơ công việc, người xử lý chính và toàn bộ tiến trình xử lý.</p></div>
+      <div class="work-controls glass">
+        <form id="xlc-form" class="work-tools" role="search" autocomplete="off"><label class="search-input" for="xlc-q"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Số ký hiệu hoặc trích yếu văn bản đến</span><input id="xlc-q" type="search" enterkeyhint="search" placeholder="Số ký hiệu / trích yếu…"></label><button class="btn primary" type="submit">Tìm</button></form>
+        <p class="hint work-explanation">Văn bản đến đã xử lý trên egov1, mới nhất trước. Chạm “Xem hồ sơ” để xem người xử lý chính và tiến trình của từng hồ sơ công việc.</p>
+      </div>
+      <div class="results-toolbar"><div><h2>Văn bản đến</h2><p id="xlc-summary" class="hint" role="status"></p></div></div>
+      <div id="xlc-results" class="results" aria-busy="false"></div>
+      <nav id="xlc-pagination" class="pagination pagination-bottom glass" aria-label="Phân trang văn bản đến" hidden></nav>
+    </section>
     <section id="view-basket" class="view" aria-labelledby="basket-title" hidden>
       <div class="page-intro"><p class="eyebrow">DANH SÁCH TẢI</p><h1 id="basket-title">Văn bản đã chọn</h1><p>Tập hợp văn bản, tải xuống trong một lần.</p></div>
       <div class="info-banner"><svg class="icon" aria-hidden="true"><use href="#i-clip"/></svg><p>Mỗi văn bản sẽ tải toàn bộ tệp đính kèm. Mở chi tiết để chọn riêng từng tệp.</p></div>
@@ -107,6 +118,7 @@
     <button type="button" data-view="basket"><span class="tab-icon"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><b id="basket-count" hidden>0</b></span><span>Đã chọn</span></button>
     <button type="button" data-view="account"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span>Tài khoản</span></button>
     <button type="button" data-view="progress"><svg class="icon" aria-hidden="true"><use href="#i-progress"/></svg><span>Nhiệm vụ</span></button>
+    <button type="button" data-view="xlc"><svg class="icon" aria-hidden="true"><use href="#i-xlc"/></svg><span>Xem XLC</span></button>
   </nav>
   <script type="module" src="/js/app.js"></script>
 </body>

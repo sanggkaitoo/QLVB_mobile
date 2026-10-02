@@ -152,7 +152,8 @@ export async function download(file) {
 
 // Read-only draft progress endpoints; shares the existing egov session and refresh.
 export async function workGet(path) {
-  if (!/^\/api\/works\/(?:v[12]\?|[a-f0-9-]+\?includeChildren=false&readContext=false$)/i.test(path)) throw new Error('API tiến độ không hợp lệ');
+  // Chỉ cho phép các API đọc: danh sách, chi tiết hồ sơ, hồ sơ theo văn bản đến (Xem XLC).
+  if (!/^\/api\/works\/(?:v[12]\?|[a-f0-9-]+\?includeChildren=false&readContext=false$|getByDocId\?docId=[A-F0-9]+$)/i.test(path)) throw new Error('API tiến độ không hợp lệ');
   let a = await token();
   const read = () => fetch(`${GW}/work${path}`, { headers: { authorization: `Bearer ${a.accessToken}` } });
   let res = await read();
