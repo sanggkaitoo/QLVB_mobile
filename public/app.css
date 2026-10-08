@@ -355,3 +355,7 @@ dl.fields dd { margin: 0; font-size: .92rem; overflow-wrap: anywhere; }
 .xlc-status.returned { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 .xlc-status.new { background: color-mix(in srgb, var(--csdlvb) 16%, transparent); color: var(--csdlvb); }
 .xlc-doc h3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Người soạn trên thẻ văn bản đi */
+.doc .drafter { display: flex; align-items: center; gap: 5px; margin: 2px 0 4px; color: var(--muted); font-size: .84rem; }
+.doc .drafter .icon { width: 15px; height: 15px; }

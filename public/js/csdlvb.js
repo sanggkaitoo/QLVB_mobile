@@ -27,6 +27,12 @@ async function call(path, body) {
   return res.json();
 }
 
+// Người soạn thảo kèm vai trò: csdlvb có khi ghi văn thư (người nhập) vào trường này.
+const drafter = (r) => {
+  const name = stripTags(r.cREATOR_NAME), role = stripTags(r.cREATE_ROLE_NAME);
+  return name ? `${name}${role ? ` (${role})` : ''}` : '';
+};
+
 // Ngày gửi dạng ISO như giao diện gốc (dịch theo múi giờ để giữ đúng ngày).
 const isoDay = (d) => (d ? `${d}T00:00:00.000Z` : undefined);
 
@@ -50,6 +56,8 @@ export async function search(kind, { q = '', page = 1, size = 20, from, to, sort
       ts: toTime(r.pUBLISH_DATE || r.dATE_PUBLISH || r.ngayDen),
       coQuan: stripTags(r.pUBLISH_AGENT_INSIDE_NAME || r.pUBLISH_AGENT_OUTSIDE_NAME || r.cREATE_DEPT_NAME || r.officE_NAME || ''),
       loai: stripTags(r.dOCUMENT_TYPE_NAME),
+      soanThao: kind === 'di' ? drafter(r) : '',
+      nguoiKy: kind === 'di' ? stripTags(r.sIGNER_NAME) : '',
     })),
   };
 }
@@ -66,6 +74,7 @@ export async function detail(item) {
     ['Loại văn bản', v.dOCUMENT_TYPE_NAME],
     ['Cơ quan ban hành', v.pUBLISH_AGENT_INSIDE_NAME || v.pUBLISH_AGENT_OUTSIDE_NAME || v.cREATE_DEPT_NAME],
     ['Người ký', v.sIGNER || v.sIGNER_NAME],
+    ...(item.kind === 'di' ? [['Người soạn thảo', drafter(v)], ['Đơn vị soạn thảo', v.cREATE_DEPT_NAME]] : []),
     ['Ngày ban hành', fmtDate(v.pUBLISH_DATE || v.dATE_PUBLISH)],
     ['Ngày đến', fmtDate(v.ngayDen)],
     ['Sổ văn bản', v.bOOK_NAME],

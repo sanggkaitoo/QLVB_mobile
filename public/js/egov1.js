@@ -104,9 +104,12 @@ export async function search(kind, opts) {
         trichYeu: stripTags(r.trichyeu),
         ngay: fmtDate(date),
         ts: toTime(date),
-        coQuan: stripTags(r.cqbh || r.nguoiky || ''),
+        coQuan: stripTags(kind === 'di' ? r.cqbh || '' : r.cqbh || r.nguoiky || ''),
+        nguoiKy: kind === 'di' ? stripTags(r.nguoiky) : '',
         loai: stripTags(r.loaivanban),
         fileCount: Array.isArray(r.files) ? r.files.length : undefined,
+        // Văn bản đi: egov1 gọi cột này là "Người soạn" (khác người ký / người duyệt).
+        soanThao: kind === 'di' ? stripTags(r.nguoisoan) : '',
       };
     }),
   };
@@ -123,6 +126,8 @@ export async function detail(item) {
     ['Lĩnh vực', v.LinhVuc],
     ['Cơ quan ban hành', v.CoQuanBanHanh],
     ['Người ký', v.NguoiKy],
+    // Chi tiết egov1 không có trường người soạn; NguoiTao chưa chắc là người soạn nên ghi đúng tên trường.
+    ...(item.kind === 'di' ? [item.soanThao ? ['Người soạn', item.soanThao] : ['Người tạo', v.NguoiTao]] : []),
     ['Ngày ban hành', v.NgayBanHanh],
     ['Ngày đến', v.NgayDen],
     ['Số đến', v.SoDen],

@@ -140,6 +140,7 @@ function docCard(it) {
       <div class="row1"><span class="badge ${it.sys}">${LABELS[it.sys]}</span><span class="code">${esc(it.soHieu || '(không số)')}</span></div>
       <div class="date">${icon('calendar')}${esc(it.ngay || 'Chưa có ngày')}</div>
       <p class="abs">${esc(it.trichYeu || 'Chưa có trích yếu')}</p>
+      ${it.soanThao || it.nguoiKy ? `<div class="drafter">${icon('user')}<span>${esc([it.soanThao && `Soạn: ${it.soanThao}`, it.nguoiKy && `Ký: ${it.nguoiKy}`].filter(Boolean).join(' · '))}</span></div>` : ''}
       <div class="meta"><span>${esc([it.loai, it.coQuan].filter(Boolean).join(' · '))}${it.fileCount ? ` <span class="file-count">${icon('clip')}${it.fileCount} tệp</span>` : ''}</span><span class="open-hint">Chi tiết${icon('arrow')}</span></div>
     </div></article>`;
 }
