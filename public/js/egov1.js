@@ -110,6 +110,7 @@ export async function search(kind, opts) {
         fileCount: Array.isArray(r.files) ? r.files.length : undefined,
         // Văn bản đi: egov1 gọi cột này là "Người soạn" (khác người ký / người duyệt).
         soanThao: kind === 'di' ? stripTags(r.nguoisoan) : '',
+        raw: r, // dữ liệu gốc của dòng, dùng cho bộ lọc nhiều trường
       };
     }),
   };

@@ -61,6 +61,15 @@
         </div>
       </div>
       <div class="results-toolbar"><div><h2>Kết quả tra cứu</h2><p id="result-summary" class="hint" role="status">Chọn nguồn để bắt đầu</p></div><button id="selection-link" type="button" class="btn compact" hidden></button></div>
+      <div id="refine" class="refine glass" hidden>
+        <div class="refine-row">
+          <label class="search-input" for="refine-q"><svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg><span class="sr-only">Lọc trong kết quả</span><input id="refine-q" type="search" enterkeyhint="done" autocomplete="off" placeholder="Lọc trong kết quả…"></label>
+          <button type="button" id="refine-toggle" class="btn refine-toggle" aria-expanded="false" aria-controls="refine-panel"><svg class="icon" aria-hidden="true"><use href="#i-filter"/></svg><span>Bộ lọc</span><b id="refine-count" hidden>0</b></button>
+        </div>
+        <div id="refine-chips" class="rf-chips"></div>
+        <div id="refine-panel" class="rf-panel" hidden></div>
+        <p id="refine-note" class="hint" role="status"></p>
+      </div>
       <div class="pagination-bar" id="pagination-bar" hidden>
         <label class="page-size" for="page-size">Văn bản / trang
           <select id="page-size"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select>

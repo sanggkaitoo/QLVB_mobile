@@ -359,3 +359,27 @@ dl.fields dd { margin: 0; font-size: .92rem; overflow-wrap: anywhere; }
 /* Người soạn trên thẻ văn bản đi */
 .doc .drafter { display: flex; align-items: center; gap: 5px; margin: 2px 0 4px; color: var(--muted); font-size: .84rem; }
 .doc .drafter .icon { width: 15px; height: 15px; }
+
+/* Lọc trong kết quả */
+.refine { padding: 12px; border-radius: 20px; margin: 8px 0 12px; }
+.refine-row { display: flex; gap: 8px; align-items: center; }
+.refine-row .search-input { flex: 1; min-width: 0; }
+.refine .hint { margin: 8px 2px 0; }
+
+.refine-toggle { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.refine-toggle b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--brand); color: #fff; font-size: .72rem; display: grid; place-items: center; }
+.refine-toggle[aria-expanded="true"] { border-color: var(--brand); color: var(--brand); }
+.rf-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rf-chips:empty { display: none; }
+.rf-chip { border: 1px solid var(--brand); background: var(--brand-2); color: var(--brand); border-radius: 999px; padding: 6px 10px; font: inherit; font-size: .82rem; min-height: 32px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-panel { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.rf-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 640px) { .rf-grid { grid-template-columns: 1fr 1fr; } }
+.rf-field { display: grid; gap: 4px; min-width: 0; }
+.rf-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.rf-label small { font-weight: 400; }
+.rf-field.on .rf-label { color: var(--brand); }
+.rf-field select, .rf-field input { width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 11px; color: var(--text); background: var(--card); font-size: 16px; }
+.rf-field.on select, .rf-field.on input { border-color: var(--brand); }
+.rf-dates { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
+.rf-dates input { width: 100%; min-width: 0; padding-inline: 8px; }

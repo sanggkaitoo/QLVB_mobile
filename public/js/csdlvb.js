@@ -59,6 +59,7 @@ export async function search(kind, { q = '', page = 1, size = 20, from, to, sort
       loai: stripTags(r.dOCUMENT_TYPE_NAME),
       soanThao: kind === 'di' ? drafter(r) : '',
       nguoiKy: kind === 'di' ? stripTags(r.sIGNER_NAME) : '',
+      raw: r, // dữ liệu gốc của dòng, dùng cho bộ lọc nhiều trường
     })),
   };
 }

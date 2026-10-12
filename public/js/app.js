@@ -5,6 +5,7 @@ import * as csdlvb from './csdlvb.js';
 import { initProgress } from './progress.js';
 import { initXlc } from './xlc.js';
 import { makeZip } from './zip.js';
+import * as rf from './refine.js';
 
 const ADAPTERS = { egov1, csdlvb };
 const LABELS = { egov1: 'egov1', csdlvb: 'csdlvb' };
@@ -29,6 +30,8 @@ const state = {
   page: 1, pageSize: PAGE_SIZES.includes(savedPageSize) ? savedPageSize : 20, busy: false,
   pages: {}, // sys -> { total, knownTotal, chunks: Map<apiPage, items>, errors: Map<apiPage, message> }
   basket: new Map(), // key -> item
+  // Lọc trong kết quả: tải toàn bộ kết quả của lần tìm (tối đa REFINE_CAP / nguồn) rồi lọc trên máy.
+  refine: { q: '', f: {}, open: false, pool: null, loading: false, capped: [], errors: [], version: 0 },
 };
 
 // ---------- tiện ích UI ----------
@@ -147,8 +150,86 @@ function docCard(it) {
 
 const itemIndex = new Map();
 
-function totalResults() {
+function rawTotal() {
   return Object.values(state.pages).reduce((n, p) => n + p.total, 0);
+}
+function totalResults() {
+  return refining() ? refined().length : rawTotal();
+}
+
+// ---------- lọc trong kết quả (nhiều trường, xem refine.js) ----------
+const REFINE_CAP = 500, REFINE_PAGE = 100;
+const refining = () => !!state.refine.q || rf.activeCount(state.refine.f) > 0;
+function refined() {
+  const { q, f, pool } = state.refine;
+  return pool ? sortByDate(pool.filter((it) => rf.matches(it, q, f))) : [];
+}
+function refineReset() {
+  state.refine = { q: '', f: {}, open: false, pool: null, loading: false, capped: [], errors: [], version: state.refine.version + 1 };
+  $('#refine-q').value = '';
+  renderRefine();
+}
+// full = vẽ lại cả bảng lọc (khi mở / đổi lựa chọn); false = chỉ cập nhật số đếm, chip, ghi chú (khi đang gõ).
+function renderRefine(full = true) {
+  const r = state.refine, n = rf.activeCount(r.f);
+  $('#refine-toggle').setAttribute('aria-expanded', String(r.open));
+  $('#refine-count').textContent = n;
+  $('#refine-count').hidden = !n;
+  $('#refine-chips').innerHTML = r.pool ? rf.chipsMarkup(r.pool, r.f) : '';
+  const panel = $('#refine-panel');
+  panel.hidden = !r.open;
+  if (r.open) {
+    if (!r.pool) panel.innerHTML = '<p class="hint">Đang tải toàn bộ kết quả để lập danh sách trường lọc…</p>';
+    else if (full) panel.innerHTML = rf.panelMarkup(r.pool, state.kind, r.q, r.f, LABELS);
+    else panel.querySelectorAll('select[data-rf]').forEach((sel) => { sel.innerHTML = rf.selectOptions(r.pool, sel.dataset.rf, r.q, r.f); });
+  }
+  const capped = r.capped.map((s) => `${LABELS[s]} có ${state.pages[s].total.toLocaleString('vi-VN')} kết quả, chỉ lọc trong ${REFINE_CAP} văn bản đầu`);
+  $('#refine-note').textContent = r.loading
+    ? 'Đang tải toàn bộ kết quả để lọc…'
+    : r.pool
+      ? [`Lọc trong ${r.pool.length.toLocaleString('vi-VN')} văn bản của lần tìm này`, ...capped, ...r.errors].join(' · ')
+      : 'Gõ để lọc nhanh, hoặc mở Bộ lọc để lọc theo từng trường (có thể kết hợp nhiều trường).';
+}
+async function ensurePool() {
+  const r = state.refine;
+  if (r.pool || r.loading) return;
+  const version = r.version;
+  const srcs = Object.keys(ADAPTERS).filter((s) => state.pages[s]?.knownTotal && state.pages[s].total > 0);
+  r.loading = true;
+  renderRefine();
+  const pool = new Map(), capped = [], errors = [];
+  await Promise.all(srcs.map(async (sys) => {
+    const want = Math.min(state.pages[sys].total, REFINE_CAP);
+    try {
+      for (let page = 1, got = 0; got < want; page++) {
+        const res = await ADAPTERS[sys].search(state.kind, { q: state.q, page, size: REFINE_PAGE, from: state.from, to: state.to, sort: state.sort });
+        if (version !== state.refine.version) return;
+        if (!res.items.length) break;
+        for (const it of res.items) { itemIndex.set(keyOf(it), it); pool.set(keyOf(it), it); }
+        got += res.items.length;
+      }
+      if (state.pages[sys].total > REFINE_CAP) capped.push(sys);
+    } catch (e) {
+      errors.push(`${LABELS[sys]}: ${handleError(e)}`);
+    }
+  }));
+  if (version !== state.refine.version) return;
+  Object.assign(state.refine, { pool: [...pool.values()], capped, errors, loading: false });
+  renderRefine(true);
+  if (refining()) { state.page = 1; renderResults(); }
+}
+function renderRefined(box) {
+  const r = state.refine;
+  if (!r.pool) {
+    $('#result-summary').textContent = 'Đang tải toàn bộ kết quả để lọc…';
+    box.innerHTML = loadingMarkup('Đang tải toàn bộ kết quả để lọc…');
+    return;
+  }
+  const rows = refined(), start = (state.page - 1) * state.pageSize;
+  $('#result-summary').textContent = `Đã lọc: ${rows.length.toLocaleString('vi-VN')} / ${r.pool.length.toLocaleString('vi-VN')} văn bản`;
+  box.innerHTML = rows.length
+    ? rows.slice(start, start + state.pageSize).map(docCard).join('')
+    : emptyState('filter', 'Không có văn bản khớp bộ lọc', 'Thử từ khoá khác hoặc bỏ bớt điều kiện lọc.');
 }
 function pageCount() {
   return Math.max(1, Math.ceil(totalResults() / state.pageSize));
@@ -209,6 +290,7 @@ function renderResults() {
   renderPagination();
   const srcs = Object.keys(ADAPTERS).filter((s) => state.pages[s]);
   if (!srcs.length) {
+    $('#refine').hidden = true;
     const active = activeSources().length;
     const loggedIn = Object.keys(ADAPTERS).some((s) => auth.valid(s));
     $('#result-summary').textContent = active ? 'Tra cứu từ các nguồn đã kết nối' : 'Chưa có nguồn dữ liệu được chọn';
@@ -219,6 +301,8 @@ function renderResults() {
         : emptyState('lock', 'Kết nối để bắt đầu', 'Đăng nhập ít nhất một hệ thống để tìm và tải văn bản của bạn.', '<button type="button" class="btn primary" data-go-account>Đăng nhập tài khoản</button>');
     return;
   }
+  $('#refine').hidden = !(refining() || rawTotal() > 0);
+  if (refining()) return renderRefined(box);
   const windows = pageWindows();
   const loaded = srcs.reduce((n, sys) => n + windowItems(sys, windows[sys] || []).length, 0);
   const total = totalResults();
@@ -294,6 +378,7 @@ async function runSearch() {
   const srcs = activeSources();
   state.page = 1;
   state.pages = {};
+  refineReset();
   itemIndex.clear();
   if (!srcs.length) return renderResults();
   searchLoading('Đang tìm văn bản…');
@@ -306,6 +391,12 @@ async function goToPage(page) {
   if (state.busy) return;
   const next = Math.max(1, Math.min(pageCount(), page));
   if (next === state.page) return renderPagination();
+  if (refining()) {
+    state.page = next;
+    renderResults();
+    $('.results-toolbar').scrollIntoView({ block: 'start' });
+    return;
+  }
   const version = ++searchVersion;
   state.page = next;
   searchLoading(`Đang tải trang ${next}…`);
@@ -735,6 +826,44 @@ function bind() {
     runSearch();
   });
 
+  let refineTimer;
+  const applyRefine = (full) => {
+    state.page = 1;
+    if (refining()) ensurePool();
+    renderRefine(full);
+    renderResults();
+  };
+  $('#refine-q').addEventListener('input', () => {
+    clearTimeout(refineTimer);
+    refineTimer = setTimeout(() => { state.refine.q = $('#refine-q').value.trim(); applyRefine(false); }, 250);
+  });
+  $('#refine-q').addEventListener('focus', () => ensurePool());
+  $('#refine-toggle').addEventListener('click', () => {
+    state.refine.open = !state.refine.open;
+    if (state.refine.open) ensurePool();
+    renderRefine(true);
+  });
+  // Ô chữ: lọc khi gõ (không vẽ lại bảng để giữ con trỏ). Ô chọn / ngày: vẽ lại để cập nhật số đếm.
+  const setField = (el) => {
+    const id = el.dataset.rf, f = state.refine.f;
+    if (el.dataset.part) f[id] = { ...(f[id] || {}), [el.dataset.part]: el.value };
+    else f[id] = el.tagName === 'SELECT' ? el.value : el.value.trim();
+  };
+  $('#refine-panel').addEventListener('input', (e) => {
+    if (e.target.type !== 'search') return;
+    clearTimeout(refineTimer);
+    refineTimer = setTimeout(() => { setField(e.target); applyRefine(false); }, 250);
+  });
+  $('#refine-panel').addEventListener('change', (e) => {
+    if (!e.target.dataset.rf || e.target.type === 'search') return;
+    setField(e.target);
+    applyRefine(true);
+  });
+  $('#refine').addEventListener('click', (e) => {
+    const remove = e.target.closest('[data-rf-remove]');
+    if (remove) { delete state.refine.f[remove.dataset.rfRemove]; applyRefine(true); }
+    if (e.target.closest('[data-rf-clear]')) { state.refine.f = {}; applyRefine(true); }
+  });
   $('#page-size').value = state.pageSize;
   $('#page-size').addEventListener('change', (e) => {
     const size = Number(e.target.value);
