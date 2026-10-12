@@ -45,7 +45,8 @@ export async function search(kind, { q = '', page = 1, size = 20, from, to, sort
   if (to) body.publish_date_to = isoDay(to);
   const j = await call(`${k.alias}/get-all`, body);
   return {
-    total: Number(j.totalRecords) || 0,
+    // get-all trả tổng ở totalCount (totalRecords chỉ có ở API tệp đính kèm). Không đọc được → ít nhất bằng số dòng đã nhận.
+    total: Number(j.totalCount ?? j.totalRecords) || (j.items || []).length,
     items: (j.items || []).map((r) => ({
       sys: SYS,
       kind,
